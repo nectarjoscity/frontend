@@ -26,7 +26,7 @@ export default function NlpTestPage() {
   return (
     <div style={{ maxWidth: 720, margin: '2rem auto', padding: '1rem' }}>
       <h1>AI NLP Test</h1>
-      <p>Type a request like "create a category named Desserts" or "show all menu items".</p>
+      <p>Type a request like &quot;create a category named Desserts&quot; or &quot;show all menu items&quot;.</p>
       <form onSubmit={onSubmit} style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
         <input
           type="text"

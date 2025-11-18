@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useTransition, useMemo } from 'react';
+import { useState, useRef, useEffect, useTransition, useMemo, useCallback } from 'react';
 import { useGetCategoriesQuery, useLazyGetMenuItemsQuery, useCreateOrderMutation } from '../services/api';
 import { interpret, toChatMessageFromResponse } from '../services/nlp';
 import { useTheme } from './providers';
@@ -104,7 +104,7 @@ export default function RestaurantChat() {
   const messagesEndRef = useRef(null);
   const chatScrollRef = useRef(null);
 
-  const scrollToBottom = (force = false) => {
+  const scrollToBottom = useCallback((force = false) => {
     // Don't auto-scroll in shop mode to prevent glitches
     if (mode === 'shop') return;
     
@@ -113,14 +113,14 @@ export default function RestaurantChat() {
     const nearBottom = (container.scrollTop + container.clientHeight) >= (container.scrollHeight - 120);
     if (!nearBottom && !force) return;
     container.scrollTo({ top: container.scrollHeight, behavior: 'auto' });
-  };
+  }, [mode]);
 
   useEffect(() => {
     // Only scroll in AI mode
     if (mode === 'ai') {
       scrollToBottom();
     }
-  }, [messages, mode]);
+  }, [messages, mode, scrollToBottom]);
 
   // Delight: short speaking animation on initial load
   useEffect(() => {
