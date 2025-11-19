@@ -2,7 +2,7 @@
 
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 
-const baseUrl = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:5000';
+const baseUrl = process.env.NEXT_PUBLIC_API_BASE || 'https://backend-blue-eta-17.vercel.app';
 
 export const nectarApi = createApi({
   reducerPath: 'nectarApi',
