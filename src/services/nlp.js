@@ -1,5 +1,5 @@
 export async function interpret(text, messages = []) {
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+  const base = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:5000';
   const res = await fetch(`${base}/api/nlp`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
