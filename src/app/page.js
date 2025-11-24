@@ -1,16 +1,18 @@
 'use client';
 
 import { useState, useRef, useEffect, useTransition, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useGetCategoriesQuery, useLazyGetMenuItemsQuery, useCreateOrderMutation } from '../services/api';
 import { interpret, toChatMessageFromResponse } from '../services/nlp';
 import { useTheme } from './providers';
-import { IoClose, IoSend, IoTrash } from 'react-icons/io5';
+import { IoClose, IoSend, IoTrash, IoCashOutline, IoCardOutline, IoCheckmarkCircleOutline } from 'react-icons/io5';
 import { HiShoppingCart } from 'react-icons/hi2';
 import HeaderNav from './components/HeaderNav';
 import Hero from './components/Hero';
 import ManualShop from './components/ManualShop';
 import CartSidebar from './components/CartSidebar';
 import InputArea from './components/InputArea';
+import GeofenceGuard from './components/GeofenceGuard';
 
 export default function RestaurantChat() {
   const { colors, theme, setTheme } = useTheme();
@@ -27,7 +29,7 @@ export default function RestaurantChat() {
   const [contactInfo, setContactInfo] = useState('');
   const [isMobile, setIsMobile] = useState(false);
   const [transferExpiry, setTransferExpiry] = useState(null);
-  const [mode, setMode] = useState('ai'); // 'ai' | 'shop'
+  const [mode, setMode] = useState('shop'); // 'ai' | 'shop' - default to shop mode
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
   const [manualItems, setManualItems] = useState([]);
   const [isLoadingItems, setIsLoadingItems] = useState(false);
@@ -36,7 +38,38 @@ export default function RestaurantChat() {
   const [manualDiningPreference, setManualDiningPreference] = useState(null); // 'takeout' | 'dine-in'
   const [manualDeliveryAddress, setManualDeliveryAddress] = useState('');
   const [manualContact, setManualContact] = useState('');
+  const [manualPaymentMethod, setManualPaymentMethod] = useState('cash'); // 'cash' | 'transfer'
+  const [manualTransferConfirmed, setManualTransferConfirmed] = useState(false);
   const [detailsItem, setDetailsItem] = useState(null);
+  const [tableNumber, setTableNumber] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('nectarv_table_number') || '';
+    }
+    return '';
+  });
+
+  // Prevent body scroll when modal is open and keep modal in viewport
+  useEffect(() => {
+    if (detailsItem) {
+      // Save current scroll position
+      const scrollY = window.scrollY;
+      // Lock body scroll
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
+      document.body.style.overflow = 'hidden';
+      
+      return () => {
+        // Restore scroll position
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.width = '';
+        document.body.style.overflow = '';
+        window.scrollTo(0, scrollY);
+      };
+    }
+  }, [detailsItem]);
+  const [overrideTableNumber, setOverrideTableNumber] = useState('');
 
   const resetManualCheckout = () => {
     setIsManualCheckout(false);
@@ -44,7 +77,32 @@ export default function RestaurantChat() {
     setManualDiningPreference(null);
     setManualDeliveryAddress('');
     setManualContact('');
+    setOverrideTableNumber('');
+    setManualPaymentMethod('cash');
+    setManualTransferConfirmed(false);
   };
+
+  // Load table number from localStorage on mount and listen for changes
+  useEffect(() => {
+    const loadTableNumber = () => {
+      if (typeof window !== 'undefined') {
+        const stored = localStorage.getItem('nectarv_table_number') || '';
+        setTableNumber(stored);
+      }
+    };
+
+    loadTableNumber();
+
+    // Listen for storage changes (when table number is updated in settings)
+    const handleStorageChange = (e) => {
+      if (e.key === 'nectarv_table_number') {
+        setTableNumber(e.newValue || '');
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   useEffect(() => {
     if (!showCart) {
@@ -141,10 +199,12 @@ export default function RestaurantChat() {
       try {
         const { data: itemsData } = await triggerGetMenuItems({ category: first._id, active: true, available: true });
         const mapped = Array.isArray(itemsData) ? itemsData.map(it => ({
+          _id: it._id,
           name: it.name,
           price: `₦${Number(it.price).toFixed(2)}`,
           description: it.description,
-          emoji: it.emoji || first.emoji
+          emoji: it.emoji || first.emoji,
+          imageUrl: it.imageUrl || null
         })) : [];
         setManualItems(mapped);
       } finally {
@@ -324,10 +384,12 @@ export default function RestaurantChat() {
         // Render item grid when response looks like menu items
         if (hasAny && looksLikeItem) {
           const items = resp.data.map(it => ({
+            _id: it._id,
             name: it.name,
             price: typeof it.price === 'number' ? `₦${Number(it.price).toFixed(2)}` : String(it.price || ''),
             description: it.description,
-            emoji: it.emoji
+            emoji: it.emoji,
+            imageUrl: it.imageUrl || null
           }));
 
           // If addToCart flag is set, automatically add items to cart
@@ -445,15 +507,18 @@ export default function RestaurantChat() {
 
   // Cart functions
   const addToCart = (item) => {
+    console.log('[addToCart] Adding item to cart:', item);
     const existingItem = cart.find(cartItem => cartItem.name === item.name);
     if (existingItem) {
       setCart(cart.map(cartItem => 
         cartItem.name === item.name 
-          ? { ...cartItem, quantity: cartItem.quantity + 1 }
+          ? { ...cartItem, quantity: cartItem.quantity + 1, _id: item._id || cartItem._id }
           : cartItem
       ));
     } else {
-      setCart([...cart, { ...item, quantity: 1 }]);
+      const cartItem = { ...item, quantity: 1, _id: item._id };
+      console.log('[addToCart] New cart item:', cartItem);
+      setCart([...cart, cartItem]);
     }
   };
 
@@ -609,32 +674,133 @@ export default function RestaurantChat() {
     }, 2000);
   };
 
-  const completeOrder = (contact = contactInfo) => {
-    setCheckoutStep(null);
-    
-    const finalTotal = diningPreference === 'takeout' 
-      ? (parseFloat(getTotalPrice()) + deliveryFee).toFixed(2)
-      : getTotalPrice();
-    
-    const confirmationMessage = {
-       id: Date.now(),
-       text: `🎉 Order confirmed! Payment successful!\n\n📧 Contact: ${contact}\n🍽️ Service: ${diningPreference === 'takeout' ? 'Takeout' : 'Dine-in'}${diningPreference === 'takeout' ? `\n📍 Delivery to: ${deliveryAddress}` : ''}\n💰 Total: ₦${finalTotal}\n\nWe'll ${diningPreference === 'takeout' ? 'deliver your order and ' : ''}notify you when your food is ready. Thank you for choosing NectarV!`,
-       sender: 'bot',
-       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-     };
-    setMessages(prev => [...prev, confirmationMessage]);
-    
-    // Reset cart and checkout state
-    setCart([]);
-    setDiningPreference(null);
-    setDeliveryAddress('');
-    setDeliveryFee(0);
-    setContactInfo('');
-    setTransferExpiry(null);
+  const completeOrder = async (contact = contactInfo) => {
+    try {
+      console.log('[AI Order Creation] Starting order creation...');
+      console.log('[AI Order Creation] Cart items:', cart);
+      console.log('[AI Order Creation] Contact:', contact);
+      console.log('[AI Order Creation] Dining preference:', diningPreference);
+      console.log('[AI Order Creation] Delivery address:', deliveryAddress);
+      
+      // Validate cart is not empty
+      if (!cart || cart.length === 0) {
+        console.error('[AI Order Creation] Cart is empty');
+        const errorMessage = {
+          id: Date.now(),
+          text: "❌ Your cart is empty. Please add items before placing an order.",
+          sender: 'bot',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+        setMessages(prev => [...prev, errorMessage]);
+        setCheckoutStep(null);
+        return;
+      }
+      
+      // Validate cart items have required fields
+      const invalidItems = cart.filter(item => !item._id);
+      if (invalidItems.length > 0) {
+        console.error('[AI Order Creation] Cart items missing _id:', invalidItems);
+        const errorMessage = {
+          id: Date.now(),
+          text: `❌ Some items in your cart are missing required information. Please refresh and add items again.`,
+          sender: 'bot',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+        setMessages(prev => [...prev, errorMessage]);
+        setCheckoutStep(null);
+        return;
+      }
+      
+      // Calculate total
+      const finalTotal = diningPreference === 'takeout' 
+        ? parseFloat(getTotalPrice()) + deliveryFee
+        : parseFloat(getTotalPrice());
+      
+      // Validate and prepare order items
+      const preparedOrderItems = cart.map(item => {
+        const menuItemId = item._id;
+        if (!menuItemId) {
+          throw new Error(`Item "${item.name}" is missing _id. Please refresh and add items again.`);
+        }
+        return {
+          menuItem: menuItemId,
+          quantity: item.quantity || 1,
+          price: parseFloat(String(item.price).replace(/[^0-9.]/g, '')) || 0
+        };
+      });
+      
+      // Prepare order data
+      const orderData = {
+        customerName: contact || 'Guest Customer',
+        customerEmail: contact.includes('@') ? contact : '',
+        customerPhone: !contact.includes('@') ? contact : '',
+        totalAmount: finalTotal,
+        status: 'pending',
+        paymentMethod: 'cash',
+        table: diningPreference === 'dine-in' 
+          ? `Table ${tableNumber || 'N/A'}` 
+          : (deliveryAddress || 'Delivery'),
+        orderItems: preparedOrderItems
+      };
+      
+      console.log('[AI Order Creation] Prepared order items:', preparedOrderItems);
+      console.log('[AI Order Creation] Full order data:', JSON.stringify(orderData, null, 2));
+      
+      // Create order in backend
+      const result = await createOrder(orderData).unwrap();
+      console.log('[AI Order Creation] Order created successfully:', result);
+      
+      setCheckoutStep(null);
+      
+      const confirmationMessage = {
+        id: Date.now(),
+        text: `🎉 Order confirmed! Payment successful!\n\n📧 Contact: ${contact}\n🍽️ Service: ${diningPreference === 'takeout' ? 'Takeout' : 'Dine-in'}${diningPreference === 'takeout' ? `\n📍 Delivery to: ${deliveryAddress}` : ''}\n💰 Total: ₦${finalTotal.toFixed(2)}\n\nWe'll ${diningPreference === 'takeout' ? 'deliver your order and ' : ''}notify you when your food is ready. Thank you for choosing NectarV!`,
+        sender: 'bot',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+      setMessages(prev => [...prev, confirmationMessage]);
+      
+      // Reset cart and checkout state
+      setCart([]);
+      setDiningPreference(null);
+      setDeliveryAddress('');
+      setDeliveryFee(0);
+      setContactInfo('');
+      setTransferExpiry(null);
+    } catch (error) {
+      console.error('[AI Order Creation Error] Full error object:', error);
+      console.error('[AI Order Creation Error] Error data:', error?.data);
+      console.error('[AI Order Creation Error] Error message:', error?.message);
+      
+      setCheckoutStep(null);
+      
+      let errorMsg = 'Unknown error occurred';
+      if (error?.data?.message) {
+        errorMsg = error.data.message;
+      } else if (error?.message) {
+        errorMsg = error.message;
+      } else if (typeof error === 'string') {
+        errorMsg = error;
+      }
+      
+      const errorMessage = {
+        id: Date.now(),
+        text: `❌ Failed to create order: ${errorMsg}\n\nPlease try again or contact support.`,
+        sender: 'bot',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    }
+  };
+
+  const handleOutsideGeofence = (location) => {
+    console.error('[App] Device outside geofence:', location);
+    // Optionally disable ordering functionality
   };
 
   return (
-    <div className="h-screen flex flex-col" style={{background: colors.background}}>
+    <GeofenceGuard onOutsideGeofence={handleOutsideGeofence}>
+      <div className="h-screen flex flex-col" style={{background: colors.background}}>
       {/* Header */}
       <HeaderNav colors={colors} theme={theme} setTheme={setTheme} mode={mode} setShowCart={setShowCart} getTotalItems={getTotalItems} />
 
@@ -707,10 +873,12 @@ export default function RestaurantChat() {
                                     const { data: itemsData } = await triggerGetMenuItems({ category: catId, active: true, available: true });
                                     if (Array.isArray(itemsData)) {
                                       items = itemsData.map(it => ({
+                                        _id: it._id,
                                         name: it.name,
                                         price: `₦${Number(it.price).toFixed(2)}`,
                                         description: it.description,
-                                        emoji: it.emoji || category.emoji
+                                        emoji: it.emoji || category.emoji,
+                                        imageUrl: it.imageUrl || null
                                       }));
                                     }
                                   }
@@ -819,16 +987,20 @@ export default function RestaurantChat() {
                             }}
                           >
                             {/* Card Header */}
-                            <div className="relative text-center overflow-hidden h-48">
-                              <img
-                                src={(item.emoji === '🥗' || item.emoji === '🌱' || item.emoji === '🥬') ? '/images/salad.jpg' :
-                                     (item.emoji === '🍲' || item.emoji === '💪' || item.emoji === '🌿') ? '/images/b.jpg' :
-                                     '/images/c.jpg'}
-                                alt={item.name}
-                                className="absolute inset-0 w-full h-full object-cover"
-                              />
+                            <div className="relative text-center overflow-hidden h-48 flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)' }}>
+                              {item.imageUrl ? (
+                                <img
+                                  src={item.imageUrl}
+                                  alt={item.name}
+                                  className="w-full h-full object-contain"
+                                />
+                              ) : (
+                                <div className="absolute inset-0 flex items-center justify-center text-7xl">
+                                  {item.emoji || '🍽️'}
+                                </div>
+                              )}
                               <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/20 to-transparent"></div>
-                              
+                            
 
                             </div>
                             
@@ -836,7 +1008,7 @@ export default function RestaurantChat() {
                             <div className="p-3 flex flex-col grow">
                               <h4 className="font-bold group-hover:text-green-700 transition-colors text-lg mb-1" style={{color: colors.text}}>{item.name}</h4>
                               <span className="inline-block text-green-600 font-semibold text-lg sm:text-xl mb-2">{item.price}</span>
-                              <p className="text-sm leading-relaxed mb-4" style={{color: colors.mutedText, minHeight: '64px'}}>{item.description}</p>
+                              <p className="text-sm leading-relaxed mb-4 line-clamp-3" style={{color: colors.mutedText}}>{item.description}</p>
                               
                               {/* Action Hint */}
                               <div className="text-center mt-auto">
@@ -1037,39 +1209,126 @@ export default function RestaurantChat() {
               cart={cart}
               addToCart={addToCart}
             />
-            {detailsItem && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center" style={{background: 'rgba(0,0,0,0.5)'}} onClick={() => setDetailsItem(null)}>
-                <div className="w-full max-w-md mx-3 rounded-2xl shadow-lg relative" style={{background: colors.cardBg, border: `1px solid ${colors.cardBorder}`}} onClick={(e) => e.stopPropagation()}>
-                  <button className="absolute top-2 right-2 p-2 rounded-full" style={{background: 'transparent', color: colors.text}} onClick={() => setDetailsItem(null)}>
-                    <IoClose className="w-5 h-5" />
+            {detailsItem && typeof window !== 'undefined' && createPortal(
+              <div 
+                className="fixed inset-0 z-[9999] flex items-center justify-center overflow-y-auto" 
+                style={{
+                  background: 'rgba(0,0,0,0.8)', 
+                  backdropFilter: 'blur(4px)',
+                  position: 'fixed',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '3px',
+                  minWidth: '100vw',
+                  minHeight: '100vh'
+                }} 
+                onClick={() => setDetailsItem(null)}
+              >
+                <div 
+                  className="relative w-full h-full flex flex-col md:h-auto md:my-auto overflow-y-auto"
+                  style={{ 
+                    maxWidth: '100%',
+                    maxHeight: '100%',
+                    minWidth: 'calc(100vw - 6px)',
+                    minHeight: 'calc(100vh - 6px)',
+                    ...(typeof window !== 'undefined' && window.innerWidth >= 768 && {
+                      minWidth: 'auto',
+                      minHeight: 'auto',
+                      width: 'calc(100vw / 3)',
+                      maxWidth: 'calc(100vw / 3)',
+                      maxHeight: '90vh'
+                    })
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Close Button */}
+                  <button
+                    className="absolute top-4 right-4 z-10 p-3 rounded-full transition-all hover:scale-110"
+                    style={{
+                      background: 'rgba(0,0,0,0.6)',
+                      color: '#fff',
+                      backdropFilter: 'blur(4px)'
+                    }}
+                    onClick={() => setDetailsItem(null)}
+                  >
+                    <IoClose className="w-6 h-6" />
                   </button>
-                  <div className="relative h-64 sm:h-72 lg:h-80 rounded-t-2xl overflow-hidden">
-                    <img
-                      src={(detailsItem.emoji === '🥗' || detailsItem.emoji === '🌱' || detailsItem.emoji === '🥬') ? '/images/salad.jpg' :
-                           (detailsItem.emoji === '🍲' || detailsItem.emoji === '💪' || detailsItem.emoji === '🌿') ? '/images/b.jpg' :
-                           '/images/c.jpg'}
-                      alt={detailsItem.name}
-                      className="absolute inset-0 w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/20 to-transparent"></div>
-                  </div>
-                  <div className="p-4">
-                    <h3 className="text-lg font-bold mb-1" style={{color: colors.text}}>{detailsItem.name}</h3>
-                    <div className="text-green-600 font-semibold mb-2">{detailsItem.price}</div>
-                    <p className="text-sm" style={{color: colors.mutedText}}>{detailsItem.description}</p>
-                    <div className="mt-4 flex gap-2">
-                      <button className="w-1/2 font-semibold py-2.5 rounded-lg border" style={{borderColor: colors.cardBorder, background: colors.cardBg, color: colors.text}} onClick={() => setDetailsItem(null)}>Close</button>
-                      <button
-                        className={`w-1/2 font-semibold py-2.5 rounded-lg transition-colors ${cart.some(ci => ci.name === detailsItem.name) ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600 text-white'}`}
-                        onClick={() => { if (!cart.some(ci => ci.name === detailsItem.name)) { addToCart(detailsItem); } }}
-                        disabled={cart.some(ci => ci.name === detailsItem.name)}
+                  
+                  {/* Image Container */}
+                  <div 
+                    className="flex items-center justify-center"
+                    style={{
+                      width: '100%',
+                      minHeight: '300px',
+                      maxHeight: typeof window !== 'undefined' && window.innerWidth >= 768 ? '60vh' : '60vh'
+                    }}
+                  >
+                    {/* Image */}
+                    {detailsItem.imageUrl ? (
+                      <img
+                        src={detailsItem.imageUrl}
+                        alt={detailsItem.name}
+                        className="w-full h-auto rounded-t-2xl shadow-2xl"
+                        style={{ 
+                          objectFit: 'contain',
+                          display: 'block',
+                          maxWidth: '100%',
+                          maxHeight: typeof window !== 'undefined' && window.innerWidth >= 768 ? '60vh' : '60vh'
+                        }}
+                      />
+                    ) : (
+                      <div 
+                        className="w-full rounded-t-2xl shadow-2xl flex items-center justify-center"
+                        style={{ 
+                          background: 'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)',
+                          minHeight: '300px'
+                        }}
                       >
-                        {cart.some(ci => ci.name === detailsItem.name) ? '✓ Added to Cart' : 'Add to Cart'}
-                      </button>
-                    </div>
+                        <div className="text-9xl">{detailsItem.emoji || '🍽️'}</div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Item Info - Below image on all screen sizes */}
+                  <div 
+                    className="p-6 rounded-b-2xl"
+                    style={{
+                      background: colors.cardBg,
+                      color: colors.text
+                    }}
+                  >
+                    <h3 className="text-2xl font-bold mb-2">{detailsItem.name}</h3>
+                    <div className="text-green-400 font-semibold text-xl mb-3">{detailsItem.price}</div>
+                    {detailsItem.description && (
+                      <p className="text-lg mb-4 leading-relaxed opacity-90">{detailsItem.description}</p>
+                    )}
+                    
+                    {/* Action Button */}
+                    <button
+                      className={`w-full font-semibold py-3 rounded-lg transition-all hover:scale-105 text-base ${
+                        cart.some(ci => ci.name === detailsItem.name) 
+                          ? 'bg-gray-300 text-gray-600 cursor-not-allowed' 
+                          : 'bg-green-500 hover:bg-green-600 text-white'
+                      }`}
+                      onClick={() => { 
+                        if (!cart.some(ci => ci.name === detailsItem.name)) { 
+                          addToCart(detailsItem);
+                          setDetailsItem(null);
+                        } 
+                      }}
+                      disabled={cart.some(ci => ci.name === detailsItem.name)}
+                    >
+                      {cart.some(ci => ci.name === detailsItem.name) ? '✓ Added to Cart' : 'Add to Cart'}
+                    </button>
                   </div>
                 </div>
-              </div>
+              </div>,
+              document.body
             )}
           </>
         )}
@@ -1111,7 +1370,15 @@ export default function RestaurantChat() {
                           <p className="font-semibold" style={{color: colors.text}}>How would you like to get your order?</p>
                           <div className="grid gap-2 sm:gap-3">
                             <button className="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2.5 px-4 rounded-lg" onClick={() => { setManualDiningPreference('takeout'); setManualStep('delivery-address'); }}>🥡 Takeout / Delivery</button>
-                            <button className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2.5 px-4 rounded-lg" onClick={() => { setManualDiningPreference('dine-in'); setManualStep('contact-info'); }}>🍽️ Dine In Restaurant</button>
+                            <button className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2.5 px-4 rounded-lg" onClick={() => { 
+                              setManualDiningPreference('dine-in'); 
+                              // If table number is configured, go to contact-info, otherwise ask for table number
+                              if (tableNumber) {
+                                setManualStep('contact-info');
+                              } else {
+                                setManualStep('table-number');
+                              }
+                            }}>🍽️ Dine In Restaurant</button>
                           </div>
                         </div>
                       )}
@@ -1134,9 +1401,61 @@ export default function RestaurantChat() {
                         </div>
                       )}
 
+                      {manualStep === 'table-number' && (
+                        <div className="space-y-3">
+                          <p className="font-semibold" style={{color: colors.text}}>What table are you at?</p>
+                          {tableNumber && (
+                            <div className="p-3 rounded-lg text-sm" style={{background: colors.amber500 + '20', border: `1px solid ${colors.amber500}40`}}>
+                              <p style={{color: colors.text}}>
+                                💡 This tablet is configured for <strong>Table {tableNumber}</strong>. You can override it below if needed.
+                              </p>
+                            </div>
+                          )}
+                          <input
+                            type="number"
+                            min="1"
+                            max="999"
+                            value={overrideTableNumber || tableNumber}
+                            onChange={(e) => setOverrideTableNumber(e.target.value)}
+                            className="w-full border rounded-lg px-3 py-2 text-lg"
+                            style={{borderColor: colors.cardBorder, background: colors.cardBg, color: colors.text}}
+                            placeholder="Enter table number (e.g., 5)"
+                          />
+                          <div className="flex gap-2">
+                            <button 
+                              className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg flex-1" 
+                              onClick={() => {
+                                const finalTable = overrideTableNumber || tableNumber;
+                                if (finalTable) {
+                                  setManualStep('contact-info');
+                                } else {
+                                  alert('Please enter a table number');
+                                }
+                              }}
+                            >
+                              Continue
+                            </button>
+                            <button 
+                              className="bg-gray-200 hover:bg-gray-300 font-semibold py-2 px-4 rounded-lg" 
+                              style={{color: colors.text}}
+                              onClick={() => setManualStep('dining-preference')}
+                            >
+                              Back
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
                       {manualStep === 'contact-info' && (
                         <div className="space-y-3">
                           <p className="font-semibold" style={{color: colors.text}}>Enter contact (email or phone):</p>
+                          {manualDiningPreference === 'dine-in' && (overrideTableNumber || tableNumber) && (
+                            <div className="p-2 rounded-lg text-sm" style={{background: colors.cardBg, border: `1px solid ${colors.cardBorder}`}}>
+                              <p style={{color: colors.mutedText}}>
+                                🪑 Table: <strong style={{color: colors.text}}>{overrideTableNumber || tableNumber}</strong>
+                              </p>
+                            </div>
+                          )}
                           <input
                             value={manualContact}
                             onChange={(e) => setManualContact(e.target.value)}
@@ -1146,74 +1465,272 @@ export default function RestaurantChat() {
                           />
                           <div className="flex gap-2">
                             <button className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg" onClick={() => setManualStep('payment')}>Continue</button>
-                            <button className="bg-gray-200 hover:bg-gray-300 font-semibold py-2 px-4 rounded-lg" style={{color: colors.text}} onClick={() => setManualStep(manualDiningPreference === 'takeout' ? 'delivery-address' : 'dining-preference')}>Back</button>
+                            <button className="bg-gray-200 hover:bg-gray-300 font-semibold py-2 px-4 rounded-lg" style={{color: colors.text}} onClick={() => {
+                              if (manualDiningPreference === 'dine-in' && !tableNumber) {
+                                setManualStep('table-number');
+                              } else {
+                                setManualStep(manualDiningPreference === 'takeout' ? 'delivery-address' : 'dining-preference');
+                              }
+                            }}>Back</button>
                           </div>
                         </div>
                       )}
 
                       {manualStep === 'payment' && (
                         <div className="space-y-3">
-                          <p className="font-semibold" style={{color: colors.text}}>Payment</p>
-                          <div className="rounded-lg p-3" style={{background: colors.cardBg, border: `1px solid ${colors.cardBorder}`}}>
-                            <p className="text-sm" style={{color: colors.mutedText}}>Transfer the exact amount of <strong className="text-green-600">₦{getTotalPrice()}</strong> to the account shown below to confirm your order.</p>
-                            <div className="mt-3 space-y-2">
-                              <div className="flex justify-between" style={{color: colors.text}}><span>Account Name</span><strong>NectarV Restaurant Ltd</strong></div>
-                              <div className="flex justify-between" style={{color: colors.text}}><span>Account Number</span><strong className="font-mono">2087654321</strong></div>
-                              <div className="flex justify-between" style={{color: colors.text}}><span>Bank</span><strong>First Bank of Nigeria</strong></div>
-                            </div>
-                          </div>
-                          <div className="flex gap-2">
-                            <button className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold py-2.5 rounded-lg" onClick={async () => { 
-                              try {
-                                console.log('Cart items:', cart);
-                                
-                                // Validate cart items have required fields
-                                const invalidItems = cart.filter(item => !item._id);
-                                if (invalidItems.length > 0) {
-                                  console.error('Cart items missing _id:', invalidItems);
-                                  alert('Some items in your cart are missing required information.\n\nPlease:\n1. Clear your cart\n2. Refresh the page\n3. Add items again\n\nThis is needed to include the item IDs.');
-                                  return;
-                                }
-                                
-                                // Create order in backend
-                                const totalAmount = getTotalPrice();
-                                const orderData = {
-                                  customerName: manualContact || 'Guest Customer',
-                                  customerEmail: manualContact.includes('@') ? manualContact : '',
-                                  customerPhone: !manualContact.includes('@') ? manualContact : '',
-                                  totalAmount: totalAmount,
-                                  status: 'pending',
-                                  paymentMethod: 'cash',
-                                  table: manualDiningPreference === 'dine-in' ? 'Dine-in' : (manualDeliveryAddress || 'Delivery'),
-                                  orderItems: cart.map(item => ({
-                                    menuItem: item._id,
-                                    quantity: item.quantity || 1,
-                                    price: parseFloat(item.price.replace(/[^0-9.]/g, '')) || 0
-                                  }))
-                                };
-                                console.log('Creating order with data:', orderData);
-                                console.log('Order items:', orderData.orderItems);
-                                
-                                const result = await createOrder(orderData).unwrap();
-                                console.log('Order created successfully:', result);
-                                setManualStep('confirmed');
-                              } catch (error) {
-                                console.error('Failed to create order - Full error:', error);
-                                console.error('Error data:', error?.data);
-                                console.error('Error message:', error?.message);
-                                const errorMsg = error?.data?.message || error?.message || 'Unknown error';
-                                alert(`Failed to create order: ${errorMsg}\n\nCheck console for details.`);
-                              }
-                            }}>✅ I have completed the transfer</button>
-                            <button className="bg-gray-200 hover:bg-gray-300 font-semibold px-4 rounded-lg" style={{color: colors.text}} onClick={() => setManualStep('contact-info')}>Back</button>
-                          </div>
+                          <p className="font-semibold" style={{color: colors.text}}>Select Payment Method</p>
+                          
+                          {/* Payment Method Selection */}
+                          <div className="grid grid-cols-2 gap-2">
+                                <button
+                                  onClick={() => {
+                                    console.log('[Payment Method] Setting to cash');
+                                    setManualPaymentMethod('cash');
+                                  }}
+                                  className={`px-4 py-3 rounded-lg text-base font-semibold transition-all flex items-center justify-center gap-2 ${
+                                    manualPaymentMethod === 'cash' ? 'text-white' : ''
+                                  }`}
+                                  style={{
+                                    background: manualPaymentMethod === 'cash'
+                                      ? colors.green500
+                                      : theme === 'light' ? '#F3F4F6' : '#1F2937',
+                                    color: manualPaymentMethod === 'cash' ? '#fff' : colors.text,
+                                    border: manualPaymentMethod === 'cash' ? 'none' : `1px solid ${colors.cardBorder}`
+                                  }}
+                                >
+                                  <IoCashOutline className="h-5 w-5" />
+                                  Cash
+                                </button>
+                                <button
+                                  onClick={() => setManualPaymentMethod('transfer')}
+                                  className={`px-4 py-3 rounded-lg text-base font-semibold transition-all flex items-center justify-center gap-2 ${
+                                    manualPaymentMethod === 'transfer' ? 'text-white' : ''
+                                  }`}
+                                  style={{
+                                    background: manualPaymentMethod === 'transfer'
+                                      ? colors.blue600 || '#2563EB'
+                                      : theme === 'light' ? '#F3F4F6' : '#1F2937',
+                                    color: manualPaymentMethod === 'transfer' ? '#fff' : colors.text,
+                                    border: manualPaymentMethod === 'transfer' ? 'none' : `1px solid ${colors.cardBorder}`
+                                  }}
+                                >
+                                  <IoCardOutline className="h-5 w-5" />
+                                  Transfer
+                                </button>
+                              </div>
+
+                              {/* Cash Payment Notice - shown when cash is selected */}
+                              {manualPaymentMethod === 'cash' && (
+                                <div className="rounded-lg p-5 mt-3" style={{background: theme === 'light' ? '#FEF3C7' : '#3A2F1A', border: `2px solid ${colors.amber500 || '#F59E0B'}`}}>
+                                  <h4 className="text-lg font-bold mb-3 flex items-center gap-2" style={{color: colors.amber700 || '#B45309'}}>
+                                    <span className="text-2xl">💰</span>
+                                    <span>Cash Payment Required</span>
+                                  </h4>
+                                  <div className="space-y-3">
+                                    <p className="text-base leading-relaxed" style={{color: colors.amber700 || '#B45309'}}>
+                                      After placing your order, please proceed to the counter to make your cash payment.
+                                    </p>
+                                    <p className="text-base leading-relaxed" style={{color: colors.amber700 || '#B45309'}}>
+                                      Your order will be validated and sent to the kitchen once payment is confirmed by our staff.
+                                    </p>
+                                    <div className="p-3 rounded-lg mt-3" style={{background: theme === 'light' ? 'rgba(180, 83, 9, 0.1)' : 'rgba(180, 83, 9, 0.2)'}}>
+                                      <p className="text-base font-bold flex items-center gap-2" style={{color: colors.amber700 || '#B45309'}}>
+                                        <span className="text-xl">⚠️</span>
+                                        <span>Important: Your order will not be processed until payment is confirmed at the counter.</span>
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Transfer Account Details - shown when transfer is selected */}
+                              {manualPaymentMethod === 'transfer' && (
+                                <div className="rounded-lg p-3 mt-3" style={{background: theme === 'light' ? '#F9FAFB' : '#1F2937', border: `1px solid ${colors.cardBorder}`}}>
+                                  <h4 className="text-base font-semibold mb-3 flex items-center" style={{color: colors.text}}>
+                                    🏦 Bank Transfer Details
+                                  </h4>
+                                  <div className="space-y-2">
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-sm font-medium" style={{color: colors.mutedText}}>Account Name:</span>
+                                      <span className="text-sm font-bold" style={{color: colors.text}}>NectarV Restaurant Ltd</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-sm font-medium" style={{color: colors.mutedText}}>Account Number:</span>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-sm font-bold font-mono" style={{color: colors.text}}>2087654321</span>
+                                        <button
+                                          className="text-green-500 hover:text-green-700 text-xs px-2 py-1 rounded transition-colors"
+                                          onClick={(e) => {
+                                            navigator.clipboard.writeText('2087654321');
+                                            const btn = e.currentTarget;
+                                            const originalText = btn.textContent;
+                                            btn.textContent = '✓ Copied';
+                                            setTimeout(() => {
+                                              btn.textContent = originalText;
+                                            }, 2000);
+                                          }}
+                                        >
+                                          📋 Copy
+                                        </button>
+                                      </div>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-sm font-medium" style={{color: colors.mutedText}}>Bank:</span>
+                                      <span className="text-sm font-bold" style={{color: colors.text}}>First Bank of Nigeria</span>
+                                    </div>
+                                    <div className="mt-3 pt-3" style={{borderTop: `1px solid ${colors.cardBorder}`}}>
+                                      <p className="text-xs mb-3" style={{color: colors.mutedText}}>
+                                        💡 Transfer the exact amount of <strong style={{color: colors.green600}}>₦{getTotalPrice()}</strong> to the account above.
+                                      </p>
+                                      <button
+                                        onClick={() => setManualTransferConfirmed(!manualTransferConfirmed)}
+                                        className={`w-full px-4 py-3 rounded-lg text-base font-semibold transition-all flex items-center justify-center gap-2 ${
+                                          manualTransferConfirmed ? 'text-white' : ''
+                                        }`}
+                                        style={{
+                                          background: manualTransferConfirmed
+                                            ? colors.green500
+                                            : theme === 'light' ? '#F3F4F6' : '#1F2937',
+                                          color: manualTransferConfirmed ? '#fff' : colors.text,
+                                          border: manualTransferConfirmed ? 'none' : `1px solid ${colors.cardBorder}`
+                                        }}
+                                      >
+                                        {manualTransferConfirmed ? (
+                                          <>
+                                            <IoCheckmarkCircleOutline className="h-5 w-5" />
+                                            ✓ I have made the transfer
+                                          </>
+                                        ) : (
+                                          <>
+                                            <IoCheckmarkCircleOutline className="h-5 w-5" />
+                                            I have made the transfer
+                                          </>
+                                        )}
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Continue Button */}
+                              <div className="flex gap-2">
+                                <button
+                                  className={`flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-2.5 rounded-lg ${
+                                    (manualPaymentMethod === 'transfer' && !manualTransferConfirmed) || !manualPaymentMethod
+                                      ? 'opacity-50 cursor-not-allowed'
+                                      : ''
+                                  }`}
+                                  disabled={(manualPaymentMethod === 'transfer' && !manualTransferConfirmed) || !manualPaymentMethod}
+                                  onClick={async () => {
+                                    if (manualPaymentMethod === 'cash' || (manualPaymentMethod === 'transfer' && manualTransferConfirmed)) {
+                                      // Proceed to create order
+                                      try {
+                                        console.log('[Order Button Clicked] Cart items:', cart);
+                                        console.log('[Order Button Clicked] Cart items with _id check:', cart.map(item => ({ name: item.name, hasId: !!item._id, _id: item._id })));
+                                        
+                                        // Validate cart is not empty
+                                        if (!cart || cart.length === 0) {
+                                          alert('Your cart is empty. Please add items before placing an order.');
+                                          return;
+                                        }
+                                        
+                                        // Validate cart items have required fields
+                                        const invalidItems = cart.filter(item => !item._id);
+                                        if (invalidItems.length > 0) {
+                                          console.error('[Order Button] Cart items missing _id:', invalidItems);
+                                          alert(`Some items in your cart are missing required information (${invalidItems.length} items).\n\nPlease:\n1. Clear your cart\n2. Refresh the page\n3. Add items again\n\nThis is needed to include the item IDs.`);
+                                          return;
+                                        }
+                                        
+                                        // Create order in backend
+                                        const totalAmount = getTotalPrice();
+                                        
+                                        // Validate and prepare order items
+                                        const preparedOrderItems = cart.map(item => {
+                                          const menuItemId = item._id;
+                                          if (!menuItemId) {
+                                            throw new Error(`Item "${item.name}" is missing _id. Please refresh and add items again.`);
+                                          }
+                                          return {
+                                            menuItem: menuItemId,
+                                            quantity: item.quantity || 1,
+                                            price: parseFloat(String(item.price).replace(/[^0-9.]/g, '')) || 0
+                                          };
+                                        });
+                                        
+                                        const orderData = {
+                                          customerName: manualContact || 'Guest Customer',
+                                          customerEmail: manualContact.includes('@') ? manualContact : '',
+                                          customerPhone: !manualContact.includes('@') ? manualContact : '',
+                                          totalAmount: totalAmount,
+                                          status: 'pending',
+                                          paymentMethod: manualPaymentMethod === 'transfer' ? 'online' : 'cash',
+                                          paymentConfirmed: manualPaymentMethod === 'transfer' ? true : false, // Transfer is auto-confirmed, cash needs waiter confirmation
+                                          table: manualDiningPreference === 'dine-in' 
+                                            ? `Table ${overrideTableNumber || tableNumber || 'N/A'}` 
+                                            : (manualDeliveryAddress || 'Delivery'),
+                                          orderItems: preparedOrderItems
+                                        };
+                                        
+                                        console.log('[Order Creation] Cart items:', cart);
+                                        console.log('[Order Creation] Prepared order items:', preparedOrderItems);
+                                        console.log('[Order Creation] Full order data:', JSON.stringify(orderData, null, 2));
+                                        
+                                        const result = await createOrder(orderData).unwrap();
+                                        console.log('[Order Creation] Order created successfully:', result);
+                                        console.log('[Order Creation] Order data sent:', orderData);
+                                        console.log('[Order Creation] Payment method at creation:', manualPaymentMethod);
+                                        setManualStep('confirmed');
+                                        // Clear cart after successful order
+                                        setCart([]);
+                                      } catch (error) {
+                                        console.error('[Order Creation Error] Full error object:', error);
+                                        console.error('[Order Creation Error] Error data:', error?.data);
+                                        console.error('[Order Creation Error] Error message:', error?.message);
+                                        console.error('[Order Creation Error] Error status:', error?.status);
+                                        console.error('[Order Creation Error] Stack:', error?.stack);
+                                        
+                                        let errorMsg = 'Unknown error occurred';
+                                        if (error?.data?.message) {
+                                          errorMsg = error.data.message;
+                                        } else if (error?.message) {
+                                          errorMsg = error.message;
+                                        } else if (typeof error === 'string') {
+                                          errorMsg = error;
+                                        }
+                                        
+                                        alert(`Failed to create order: ${errorMsg}\n\nPlease check the browser console for more details.`);
+                                      }
+                                    }
+                                  }}
+                                >
+                                  {manualPaymentMethod === 'cash' ? 'Place Order' : manualPaymentMethod === 'transfer' && manualTransferConfirmed ? 'Place Order' : 'Select Payment Method'}
+                                </button>
+                                <button className="bg-gray-200 hover:bg-gray-300 font-semibold px-4 rounded-lg" style={{color: colors.text}} onClick={() => setManualStep('contact-info')}>Back</button>
+                              </div>
                         </div>
                       )}
 
                       {manualStep === 'confirmed' && (
                         <div className="space-y-3">
                           <p className="font-semibold" style={{color: colors.text}}>🎉 Order confirmed!</p>
-                          <p className="text-sm" style={{color: colors.mutedText}}>We will {manualDiningPreference === 'takeout' ? 'deliver your order to' : 'notify you at'} {manualDiningPreference === 'takeout' ? manualDeliveryAddress : manualContact} when your food is ready.</p>
+                          {/* Show payment counter message for cash payments */}
+                          {manualPaymentMethod === 'cash' && (
+                            <div className="space-y-2">
+                              <div className="p-3 rounded-lg" style={{background: theme === 'light' ? '#FEF3C7' : '#3A2F1A', border: `1px solid ${colors.amber500 || '#F59E0B'}`}}>
+                                <p className="text-sm font-semibold mb-2" style={{color: colors.amber700 || '#B45309'}}>
+                                  💰 Payment Required at Counter
+                                </p>
+                                <p className="text-sm" style={{color: colors.amber700 || '#B45309'}}>
+                                  Please proceed to the counter to make your cash payment. Your order will be validated and sent to the kitchen once payment is confirmed.
+                                </p>
+                              </div>
+                              <p className="text-sm" style={{color: colors.mutedText}}>We will {manualDiningPreference === 'takeout' ? 'deliver your order to' : 'notify you at'} {manualDiningPreference === 'takeout' ? manualDeliveryAddress : manualContact} when your food is ready.</p>
+                            </div>
+                          )}
+                          {manualPaymentMethod !== 'cash' && (
+                            <p className="text-sm" style={{color: colors.mutedText}}>We will {manualDiningPreference === 'takeout' ? 'deliver your order to' : 'notify you at'} {manualDiningPreference === 'takeout' ? manualDeliveryAddress : manualContact} when your food is ready.</p>
+                          )}
                           <button className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2.5 px-4 rounded-lg" onClick={() => { setCart([]); resetManualCheckout(); setShowCart(false); }}>Done</button>
                         </div>
                       )}
@@ -1227,7 +1744,7 @@ export default function RestaurantChat() {
                             <span className="text-base sm:text-lg mr-2">{item.emoji}</span>
                             <h3 className="font-semibold text-sm sm:text-base" style={{color: colors.text}}>{item.name}</h3>
                           </div>
-                          <p className="text-xs sm:text-sm mb-2" style={{color: colors.mutedText}}>{item.description}</p>
+                          <p className="text-xs sm:text-sm mb-2 line-clamp-3" style={{color: colors.mutedText}}>{item.description}</p>
                           <p className="text-base sm:text-lg font-bold text-green-600">{item.price}</p>
                         </div>
                         <button 
@@ -1384,6 +1901,7 @@ export default function RestaurantChat() {
 
 
       `}</style>
-    </div>
+      </div>
+    </GeofenceGuard>
   );
 }

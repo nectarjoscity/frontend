@@ -16,7 +16,7 @@ export const nectarApi = createApi({
       return headers;
     }
   }),
-  tagTypes: ['Categories', 'MenuItems', 'Auth', 'Users', 'Orders'],
+  tagTypes: ['Categories', 'MenuItems', 'Auth', 'Users', 'Orders', 'Team'],
   endpoints: (builder) => ({
     // Auth
     login: builder.mutation({
@@ -96,7 +96,18 @@ export const nectarApi = createApi({
       },
     }),
     createMenuItem: builder.mutation({
-      query: (body) => ({ url: 'api/menu-items', method: 'POST', body }),
+      query: (body) => {
+        // Check if body is FormData (has image file)
+        const isFormData = body instanceof FormData;
+        return {
+          url: 'api/menu-items',
+          method: 'POST',
+          body: isFormData ? body : JSON.stringify(body),
+          ...(isFormData ? {} : { 
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        };
+      },
       transformResponse: (response) => response?.data,
       invalidatesTags: (res, err, arg) => [
         { type: 'MenuItems', id: 'LIST' },
@@ -105,7 +116,20 @@ export const nectarApi = createApi({
       ]
     }),
     updateMenuItem: builder.mutation({
-      query: ({ id, ...body }) => ({ url: `api/menu-items/${id}`, method: 'PUT', body }),
+      query: ({ id, body, ...rest }) => {
+        // Handle both FormData and regular object
+        const payload = body || rest;
+        const isFormData = payload instanceof FormData;
+        
+        return {
+          url: `api/menu-items/${id}`,
+          method: 'PUT',
+          body: isFormData ? payload : JSON.stringify(payload),
+          ...(isFormData ? {} : { 
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        };
+      },
       transformResponse: (response) => response?.data,
       invalidatesTags: (result, error, arg) => [
         { type: 'MenuItems', id: 'LIST' },
@@ -131,7 +155,10 @@ export const nectarApi = createApi({
     // Orders
     getOrders: builder.query({
       query: () => ({ url: 'api/orders' }),
-      transformResponse: (response) => response?.data || [],
+      transformResponse: (response) => {
+        console.log('Orders API response:', response);
+        return response?.data || response || [];
+      },
       providesTags: (result) =>
         result
           ? [
@@ -139,6 +166,10 @@ export const nectarApi = createApi({
               { type: 'Orders', id: 'LIST' },
             ]
           : [{ type: 'Orders', id: 'LIST' }],
+      // Keep query subscribed so cache invalidation works
+      keepUnusedDataFor: 60, // Keep data for 60 seconds even if not subscribed
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
     }),
     getOrderById: builder.query({
       query: (id) => ({ url: `api/orders/${id}` }),
@@ -146,9 +177,44 @@ export const nectarApi = createApi({
       providesTags: (result, error, id) => [{ type: 'Orders', id }],
     }),
     createOrder: builder.mutation({
-      query: (body) => ({ url: 'api/orders', method: 'POST', body }),
-      transformResponse: (response) => response?.data,
-      invalidatesTags: [{ type: 'Orders', id: 'LIST' }]
+      query: (body) => {
+        console.log('[API] Creating order with body:', body);
+        return { url: 'api/orders', method: 'POST', body };
+      },
+      transformResponse: (response) => {
+        console.log('[API] Order creation response:', response);
+        return response?.data || response;
+      },
+      invalidatesTags: [{ type: 'Orders', id: 'LIST' }],
+      // Explicitly trigger refetch after order creation
+      async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+        // Optimistic update: invalidate cache immediately
+        dispatch(nectarApi.util.invalidateTags([{ type: 'Orders', id: 'LIST' }]));
+        
+        try {
+          await queryFulfilled;
+          console.log('[API] Order created successfully, invalidating cache and refetching');
+          
+          // Invalidate tags again to ensure refetch
+          dispatch(nectarApi.util.invalidateTags([{ type: 'Orders', id: 'LIST' }]));
+          
+          // Also trigger a manual refetch for any active subscriptions
+          dispatch(nectarApi.endpoints.getOrders.initiate(undefined, { forceRefetch: true }));
+          
+          // Notify other tabs/windows about order creation (cross-tab communication)
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('nectarv_order_created', Date.now().toString());
+            // Also dispatch a custom event for same-tab communication
+            window.dispatchEvent(new Event('nectarv_order_created'));
+            // Remove the localStorage item after a short delay to allow other tabs to detect it
+            setTimeout(() => {
+              localStorage.removeItem('nectarv_order_created');
+            }, 100);
+          }
+        } catch (error) {
+          console.error('[API] Order creation failed:', error);
+        }
+      },
     }),
     updateOrder: builder.mutation({
       query: ({ id, ...body }) => ({ url: `api/orders/${id}`, method: 'PUT', body }),
@@ -162,6 +228,52 @@ export const nectarApi = createApi({
       query: ({ id }) => ({ url: `api/orders/${id}`, method: 'DELETE' }),
       transformResponse: (response) => response?.data,
       invalidatesTags: [{ type: 'Orders', id: 'LIST' }]
+    }),
+    // Current User (Me)
+    getCurrentUser: builder.query({
+      query: () => ({ url: 'api/users/me' }),
+      transformResponse: (response) => response?.data,
+      providesTags: [{ type: 'Auth', id: 'CURRENT_USER' }],
+    }),
+    // Team Management
+    getTeamMembers: builder.query({
+      query: () => ({ url: 'api/users' }),
+      transformResponse: (response) => response?.data || [],
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.map((u) => ({ type: 'Team', id: u._id })),
+              { type: 'Team', id: 'LIST' },
+            ]
+          : [{ type: 'Team', id: 'LIST' }],
+    }),
+    getTeamMember: builder.query({
+      query: (id) => ({ url: `api/users/${id}` }),
+      transformResponse: (response) => response?.data,
+      providesTags: (result, error, id) => [{ type: 'Team', id }],
+    }),
+    createTeamMember: builder.mutation({
+      query: (body) => ({ url: 'api/users', method: 'POST', body }),
+      transformResponse: (response) => response?.data,
+      invalidatesTags: [{ type: 'Team', id: 'LIST' }],
+    }),
+    updateTeamMember: builder.mutation({
+      query: ({ id, ...body }) => ({ url: `api/users/${id}`, method: 'PUT', body }),
+      transformResponse: (response) => response?.data,
+      invalidatesTags: (result, error, arg) => [
+        { type: 'Team', id: 'LIST' },
+        { type: 'Team', id: arg.id },
+      ],
+    }),
+    deleteTeamMember: builder.mutation({
+      query: ({ id }) => ({ url: `api/users/${id}`, method: 'DELETE' }),
+      transformResponse: (response) => response?.data,
+      invalidatesTags: [{ type: 'Team', id: 'LIST' }],
+    }),
+    // Contact Form
+    submitContactForm: builder.mutation({
+      query: (body) => ({ url: 'api/contact', method: 'POST', body }),
+      transformResponse: (response) => response,
     }),
   }),
 });
@@ -183,4 +295,11 @@ export const {
   useCreateOrderMutation,
   useUpdateOrderMutation,
   useDeleteOrderMutation,
+  useGetCurrentUserQuery,
+  useGetTeamMembersQuery,
+  useGetTeamMemberQuery,
+  useCreateTeamMemberMutation,
+  useUpdateTeamMemberMutation,
+  useDeleteTeamMemberMutation,
+  useSubmitContactFormMutation,
 } = nectarApi;

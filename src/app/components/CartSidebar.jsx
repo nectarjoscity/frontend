@@ -21,7 +21,9 @@ export default function CartSidebar({
   setManualDeliveryAddress,
   manualContact,
   setManualContact,
-  resetManualCheckout
+  resetManualCheckout,
+  onOrderCreate,
+  isPreOrder = false
 }) {
   if (!showCart) return null;
   return (
@@ -56,27 +58,85 @@ export default function CartSidebar({
                 <div className="rounded-lg p-3 sm:p-4" style={{background: colors.cardBg, border: `1px solid ${colors.cardBorder}`}}>
                   {manualStep === 'dining-preference' && (
                     <div className="space-y-3">
-                      <p className="font-semibold" style={{color: colors.text}}>How would you like to get your order?</p>
+                      <p className="font-semibold" style={{color: colors.text}}>
+                        {isPreOrder 
+                          ? "How would you like to receive your pre-order?"
+                          : "How would you like to get your order?"
+                        }
+                      </p>
                       <div className="grid gap-2 sm:gap-3">
-                        <button className="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2.5 px-4 rounded-lg" onClick={() => { setManualDiningPreference('takeout'); setManualStep('delivery-address'); }}>🥡 Takeout / Delivery</button>
-                        <button className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2.5 px-4 rounded-lg" onClick={() => { setManualDiningPreference('dine-in'); setManualStep('contact-info'); }}>🍽️ Dine In Restaurant</button>
+                        {isPreOrder ? (
+                          <>
+                            <button 
+                              className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2.5 px-4 rounded-lg text-left" 
+                              onClick={() => { 
+                                setManualDiningPreference('dine-in'); 
+                                setManualStep('contact-info'); 
+                              }}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="text-xl">🍽️</span>
+                                <div>
+                                  <div className="font-bold">Dine at the restaurant</div>
+                                  <div className="text-xs opacity-90">I'll come to the restaurant to enjoy my meal</div>
+                                </div>
+                              </div>
+                            </button>
+                            <button 
+                              className="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2.5 px-4 rounded-lg text-left" 
+                              onClick={() => { 
+                                setManualDiningPreference('delivery'); 
+                                setManualStep('delivery-address'); 
+                              }}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="text-xl">🚚</span>
+                                <div>
+                                  <div className="font-bold">Home delivery</div>
+                                  <div className="text-xs opacity-90">Please deliver my order to my address</div>
+                                </div>
+                              </div>
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button className="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2.5 px-4 rounded-lg" onClick={() => { setManualDiningPreference('takeout'); setManualStep('delivery-address'); }}>🥡 Takeout / Delivery</button>
+                            <button className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2.5 px-4 rounded-lg" onClick={() => { setManualDiningPreference('dine-in'); setManualStep('contact-info'); }}>🍽️ Dine In Restaurant</button>
+                          </>
+                        )}
                       </div>
                     </div>
                   )}
 
                   {manualStep === 'delivery-address' && (
                     <div className="space-y-3">
-                      <p className="font-semibold" style={{color: colors.text}}>Enter delivery address:</p>
+                      <p className="font-semibold" style={{color: colors.text}}>
+                        {isPreOrder 
+                          ? "Where should we deliver your pre-order?"
+                          : "Enter delivery address:"
+                        }
+                      </p>
                       <textarea
                         value={manualDeliveryAddress}
                         onChange={(e) => setManualDeliveryAddress(e.target.value)}
                         className="w-full border rounded-lg px-3 py-2"
                         style={{borderColor: colors.cardBorder, background: colors.cardBg, color: colors.text}}
                         rows={3}
-                        placeholder="123 Example Street, City"
+                        placeholder={isPreOrder ? "Enter your complete delivery address (street, city, state)" : "123 Example Street, City"}
                       />
+                      {isPreOrder && (
+                        <p className="text-xs" style={{color: colors.mutedText, opacity: 0.8}}>
+                          Please provide your complete address to ensure timely delivery.
+                        </p>
+                      )}
                       <div className="flex gap-2">
-                        <button className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg" onClick={() => setManualStep('contact-info')}>Continue</button>
+                        <button 
+                          className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg" 
+                          onClick={() => setManualStep('contact-info')}
+                          disabled={!manualDeliveryAddress.trim()}
+                        >
+                          Continue
+                        </button>
                         <button className="bg-gray-200 hover:bg-gray-300 font-semibold py-2 px-4 rounded-lg" style={{color: colors.text}} onClick={() => setManualStep('dining-preference')}>Back</button>
                       </div>
                     </div>
@@ -111,7 +171,24 @@ export default function CartSidebar({
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <button className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold py-2.5 rounded-lg" onClick={() => { setManualStep('confirmed'); }}>✅ I have completed the transfer</button>
+                        <button 
+                          className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold py-2.5 rounded-lg" 
+                          onClick={async () => { 
+                            if (onOrderCreate) {
+                              try {
+                                await onOrderCreate();
+                                setManualStep('confirmed');
+                              } catch (error) {
+                                console.error('Error creating order:', error);
+                                alert(error?.message || 'Failed to create order');
+                              }
+                            } else {
+                              setManualStep('confirmed');
+                            }
+                          }}
+                        >
+                          ✅ I have completed the transfer
+                        </button>
                         <button className="bg-gray-200 hover:bg-gray-300 font-semibold px-4 rounded-lg" style={{color: colors.text}} onClick={() => setManualStep('contact-info')}>Back</button>
                       </div>
                     </div>
@@ -121,7 +198,19 @@ export default function CartSidebar({
                     <div className="space-y-3">
                       <p className="font-semibold" style={{color: colors.text}}>🎉 Order confirmed!</p>
                       <p className="text-sm" style={{color: colors.mutedText}}>We will {manualDiningPreference === 'takeout' ? 'deliver your order to' : 'notify you at'} {manualDiningPreference === 'takeout' ? manualDeliveryAddress : manualContact} when your food is ready.</p>
-                      <button className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2.5 px-4 rounded-lg" onClick={() => { resetManualCheckout(); setShowCart(false); }}>Done</button>
+                      <button 
+                        className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2.5 px-4 rounded-lg" 
+                        onClick={() => { 
+                          resetManualCheckout(); 
+                          setShowCart(false);
+                          if (onOrderCreate && typeof window !== 'undefined') {
+                            // Clear cart after successful order
+                            window.dispatchEvent(new Event('order_created'));
+                          }
+                        }}
+                      >
+                        Done
+                      </button>
                     </div>
                   )}
                 </div>
@@ -134,7 +223,7 @@ export default function CartSidebar({
                         <span className="text-base sm:text-lg mr-2">{item.emoji}</span>
                         <h3 className="font-semibold text-sm sm:text-base" style={{color: colors.text}}>{item.name}</h3>
                       </div>
-                      <p className="text-xs sm:text-sm mb-2" style={{color: colors.mutedText}}>{item.description}</p>
+                      <p className="text-xs sm:text-sm mb-2 line-clamp-3" style={{color: colors.mutedText}}>{item.description}</p>
                       <p className="text-base sm:text-lg font-bold text-green-600">{item.price}</p>
                     </div>
                     <button 
