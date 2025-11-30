@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useTransition, useMemo, useCallback } from 'react';
+import { useState, useRef, useEffect, useTransition, useMemo, useCallback, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import Script from 'next/script';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -17,7 +17,16 @@ import InputArea from './components/InputArea';
 import GeofenceGuard from './components/GeofenceGuard';
 import { isPreOrderLandingPage } from '../utils/landingPage';
 
-export default function RestaurantChat() {
+// Wrapper component to handle Suspense boundary for useSearchParams
+export default function RestaurantChatPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div></div>}>
+      <RestaurantChat />
+    </Suspense>
+  );
+}
+
+function RestaurantChat() {
   const { colors, theme, setTheme } = useTheme();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
