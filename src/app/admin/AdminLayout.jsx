@@ -113,7 +113,7 @@ export default function AdminLayout({ title, active = 'dashboard', children, req
             <IoRestaurantOutline className="h-5 w-5" />
           </div>
           {sidebarOpen && (
-            <div className="font-extrabold text-xl tracking-tight" style={{ color: colors.text }}>NectarV Admin</div>
+            <div className="font-extrabold text-xl tracking-tight" style={{ color: colors.text }}>Nectar Admin</div>
           )}
           <button
             className={`ml-auto h-10 ${sidebarOpen ? 'w-10' : 'w-12'} rounded-xl flex items-center justify-center`}

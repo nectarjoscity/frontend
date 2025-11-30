@@ -188,7 +188,7 @@ export default function ContactPage() {
                       <h3 className="text-lg font-semibold mb-1" style={{ color: colors.text }}>Location</h3>
                       <p className="text-base" style={{ color: colors.text }}>
                         123 Restaurant Street<br />
-                        Lagos, Nigeria
+                        Jos, Plateau State, Nigeria
                       </p>
                       <p className="text-sm mt-2" style={{ color: colors.mutedText }}>
                         Visit us at our location

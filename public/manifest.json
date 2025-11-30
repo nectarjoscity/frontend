@@ -1,0 +1,28 @@
+{
+  "name": "Nectar Restaurant",
+  "short_name": "Nectar",
+  "description": "Discover amazing dining experiences. Browse our menu, order your favorites, and enjoy fresh, delicious meals.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#F59E0B",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/logo_black.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo_white.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["food", "restaurant", "dining"],
+  "lang": "en-NG",
+  "dir": "ltr"
+}
+

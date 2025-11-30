@@ -649,7 +649,7 @@ export default function WaitersPage() {
                         <div className="space-y-2">
                           <div className="flex justify-between items-center">
                             <span className="text-sm font-medium" style={{ color: colors.mutedText }}>Account Name:</span>
-                            <span className="text-sm font-bold" style={{ color: colors.text }}>NectarV Restaurant Ltd</span>
+                            <span className="text-sm font-bold" style={{ color: colors.text }}>Nectar Restaurant Ltd</span>
                           </div>
                           <div className="flex justify-between items-center">
                             <span className="text-sm font-medium" style={{ color: colors.mutedText }}>Account Number:</span>

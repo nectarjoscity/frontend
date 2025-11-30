@@ -481,7 +481,7 @@ export default function RestaurantChat() {
           ];
       const categoryResponse = {
         id: messages.length + 2,
-        text: 'Welcome to NectarV! Please choose a category to explore:',
+        text: 'Welcome to Nectar! Please choose a category to explore:',
         sender: 'bot',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         isCategoryMenu: true,
@@ -754,7 +754,7 @@ export default function RestaurantChat() {
       
       const confirmationMessage = {
         id: Date.now(),
-        text: `🎉 Order confirmed! Payment successful!\n\n📧 Contact: ${contact}\n🍽️ Service: ${diningPreference === 'takeout' ? 'Takeout' : 'Dine-in'}${diningPreference === 'takeout' ? `\n📍 Delivery to: ${deliveryAddress}` : ''}\n💰 Total: ₦${finalTotal.toFixed(2)}\n\nWe'll ${diningPreference === 'takeout' ? 'deliver your order and ' : ''}notify you when your food is ready. Thank you for choosing NectarV!`,
+        text: `🎉 Order confirmed! Payment successful!\n\n📧 Contact: ${contact}\n🍽️ Service: ${diningPreference === 'takeout' ? 'Takeout' : 'Dine-in'}${diningPreference === 'takeout' ? `\n📍 Delivery to: ${deliveryAddress}` : ''}\n💰 Total: ₦${finalTotal.toFixed(2)}\n\nWe'll ${diningPreference === 'takeout' ? 'deliver your order and ' : ''}notify you when your food is ready. Thank you for choosing Nectar!`,
         sender: 'bot',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
@@ -1089,7 +1089,7 @@ export default function RestaurantChat() {
                            <div className="space-y-3">
                              <div className="flex justify-between items-center p-3 rounded-lg" style={{background: theme === 'light' ? '#F9FAFB' : '#1F2937'}}>
                                <span className="text-sm font-medium" style={{color: colors.mutedText}}>Account Name:</span>
-                               <span className="text-sm font-bold" style={{color: colors.text}}>NectarV Restaurant Ltd</span>
+                               <span className="text-sm font-bold" style={{color: colors.text}}>Nectar Restaurant Ltd</span>
                              </div>
                              
                              <div className="flex justify-between items-center p-3 rounded-lg" style={{background: theme === 'light' ? '#F9FAFB' : '#1F2937'}}>
@@ -1552,7 +1552,7 @@ export default function RestaurantChat() {
                                   <div className="space-y-2">
                                     <div className="flex justify-between items-center">
                                       <span className="text-sm font-medium" style={{color: colors.mutedText}}>Account Name:</span>
-                                      <span className="text-sm font-bold" style={{color: colors.text}}>NectarV Restaurant Ltd</span>
+                                      <span className="text-sm font-bold" style={{color: colors.text}}>Nectar Restaurant Ltd</span>
                                     </div>
                                     <div className="flex justify-between items-center">
                                       <span className="text-sm font-medium" style={{color: colors.mutedText}}>Account Number:</span>

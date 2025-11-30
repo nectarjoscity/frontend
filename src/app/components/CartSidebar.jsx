@@ -165,7 +165,7 @@ export default function CartSidebar({
                       <div className="rounded-lg p-3" style={{background: colors.cardBg, border: `1px solid ${colors.cardBorder}`}}>
                         <p className="text-sm" style={{color: colors.mutedText}}>Transfer the exact amount of <strong className="text-green-600">₦{getTotalPrice()}</strong> to the account shown below to confirm your order.</p>
                         <div className="mt-3 space-y-2">
-                          <div className="flex justify-between" style={{color: colors.text}}><span>Account Name</span><strong>NectarV Restaurant Ltd</strong></div>
+                          <div className="flex justify-between" style={{color: colors.text}}><span>Account Name</span><strong>Nectar Restaurant Ltd</strong></div>
                           <div className="flex justify-between" style={{color: colors.text}}><span>Account Number</span><strong className="font-mono">2087654321</strong></div>
                           <div className="flex justify-between" style={{color: colors.text}}><span>Bank</span><strong>First Bank of Nigeria</strong></div>
                         </div>
