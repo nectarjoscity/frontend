@@ -24,6 +24,11 @@ export const nectarApi = createApi({
       transformResponse: (response) => response?.data,
       invalidatesTags: ['Auth']
     }),
+    register: builder.mutation({
+      query: (body) => ({ url: 'api/auth/register', method: 'POST', body }),
+      transformResponse: (response) => response?.data,
+      invalidatesTags: ['Auth']
+    }),
     getCategories: builder.query({
       query: ({ active } = {}) => ({
         url: 'api/categories',
@@ -33,13 +38,13 @@ export const nectarApi = createApi({
       providesTags: (result, error, arg) => {
         const activeKey = arg?.active !== undefined ? `-active-${arg.active}` : '';
         const listTag = `LIST${activeKey}`;
-        
+
         return result
           ? [
-              ...result.map((c) => ({ type: 'Categories', id: c._id })),
-              { type: 'Categories', id: 'LIST' },
-              { type: 'Categories', id: listTag },
-            ]
+            ...result.map((c) => ({ type: 'Categories', id: c._id })),
+            { type: 'Categories', id: 'LIST' },
+            { type: 'Categories', id: listTag },
+          ]
           : [{ type: 'Categories', id: 'LIST' }, { type: 'Categories', id: listTag }];
       },
     }),
@@ -82,14 +87,14 @@ export const nectarApi = createApi({
         const categoryKey = arg?.category || 'all';
         const activeKey = arg?.active !== undefined ? `-active-${arg.active}` : '';
         const listTag = `LIST-${categoryKey}${activeKey}`;
-        
+
         const tags = result
           ? [
-              ...result.map((i) => ({ type: 'MenuItems', id: i._id })),
-              { type: 'MenuItems', id: listTag },
-            ]
+            ...result.map((i) => ({ type: 'MenuItems', id: i._id })),
+            { type: 'MenuItems', id: listTag },
+          ]
           : [{ type: 'MenuItems', id: listTag }];
-        
+
         // Also add a general MenuItems tag for broader invalidation
         tags.push({ type: 'MenuItems', id: 'LIST' });
         return tags;
@@ -103,7 +108,7 @@ export const nectarApi = createApi({
           url: 'api/menu-items',
           method: 'POST',
           body: isFormData ? body : JSON.stringify(body),
-          ...(isFormData ? {} : { 
+          ...(isFormData ? {} : {
             headers: { 'Content-Type': 'application/json' },
           }),
         };
@@ -120,12 +125,12 @@ export const nectarApi = createApi({
         // Handle both FormData and regular object
         const payload = body || rest;
         const isFormData = payload instanceof FormData;
-        
+
         return {
           url: `api/menu-items/${id}`,
           method: 'PUT',
           body: isFormData ? payload : JSON.stringify(payload),
-          ...(isFormData ? {} : { 
+          ...(isFormData ? {} : {
             headers: { 'Content-Type': 'application/json' },
           }),
         };
@@ -162,9 +167,9 @@ export const nectarApi = createApi({
       providesTags: (result) =>
         result
           ? [
-              ...result.map((o) => ({ type: 'Orders', id: o._id })),
-              { type: 'Orders', id: 'LIST' },
-            ]
+            ...result.map((o) => ({ type: 'Orders', id: o._id })),
+            { type: 'Orders', id: 'LIST' },
+          ]
           : [{ type: 'Orders', id: 'LIST' }],
       // Keep query subscribed so cache invalidation works
       keepUnusedDataFor: 60, // Keep data for 60 seconds even if not subscribed
@@ -190,17 +195,17 @@ export const nectarApi = createApi({
       async onQueryStarted(arg, { dispatch, queryFulfilled }) {
         // Optimistic update: invalidate cache immediately
         dispatch(nectarApi.util.invalidateTags([{ type: 'Orders', id: 'LIST' }]));
-        
+
         try {
           await queryFulfilled;
           console.log('[API] Order created successfully, invalidating cache and refetching');
-          
+
           // Invalidate tags again to ensure refetch
           dispatch(nectarApi.util.invalidateTags([{ type: 'Orders', id: 'LIST' }]));
-          
+
           // Also trigger a manual refetch for any active subscriptions
           dispatch(nectarApi.endpoints.getOrders.initiate(undefined, { forceRefetch: true }));
-          
+
           // Notify other tabs/windows about order creation (cross-tab communication)
           if (typeof window !== 'undefined') {
             localStorage.setItem('nectarv_order_created', Date.now().toString());
@@ -242,9 +247,9 @@ export const nectarApi = createApi({
       providesTags: (result) =>
         result
           ? [
-              ...result.map((u) => ({ type: 'Team', id: u._id })),
-              { type: 'Team', id: 'LIST' },
-            ]
+            ...result.map((u) => ({ type: 'Team', id: u._id })),
+            { type: 'Team', id: 'LIST' },
+          ]
           : [{ type: 'Team', id: 'LIST' }],
     }),
     getTeamMember: builder.query({
@@ -274,6 +279,15 @@ export const nectarApi = createApi({
     submitContactForm: builder.mutation({
       query: (body) => ({ url: 'api/contact', method: 'POST', body }),
       transformResponse: (response) => response,
+    }),
+    // Payment endpoints
+    createVirtualAccount: builder.mutation({
+      query: (body) => ({ url: 'api/payments/create-virtual-account', method: 'POST', body }),
+      transformResponse: (response) => response?.data,
+    }),
+    verifyPayment: builder.mutation({
+      query: (body) => ({ url: 'api/payments/verify', method: 'POST', body }),
+      transformResponse: (response) => response?.data,
     }),
     // Inventory endpoints
     getInventoryItems: builder.query({
@@ -447,6 +461,7 @@ export const nectarApi = createApi({
 
 export const {
   useLoginMutation,
+  useRegisterMutation,
   useGetCategoriesQuery,
   useLazyGetCategoriesQuery,
   useCreateCategoryMutation,
@@ -489,4 +504,6 @@ export const {
   useGetCashFlowStatementQuery,
   useGetRevenueAnalysisQuery,
   useGetTaxSummaryQuery,
+  useCreateVirtualAccountMutation,
+  useVerifyPaymentMutation,
 } = nectarApi;

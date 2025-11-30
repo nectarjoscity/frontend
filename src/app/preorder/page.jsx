@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { useGetCategoriesQuery, useLazyGetMenuItemsQuery, useCreateOrderMutation } from '../../services/api';
+import { useGetCategoriesQuery, useLazyGetMenuItemsQuery, useCreateOrderMutation, useVerifyPaymentMutation } from '../../services/api';
 import { useTheme } from '../providers';
 import { IoClose, IoSend, IoTrash, IoCashOutline, IoCardOutline, IoCheckmarkCircleOutline, IoTimeOutline } from 'react-icons/io5';
 import { HiShoppingCart } from 'react-icons/hi2';
@@ -113,25 +113,28 @@ export default function PreOrderPage() {
     }
   }, [preOrderAllowed, timeRemaining]);
 
-  // Default load first category items when pre-orders are allowed
+  // Default load first category items when pre-orders are allowed (oldest first)
   useEffect(() => {
     const preloadFirstCategory = async () => {
       if (!preOrderAllowed) return;
       if (isLoadingCategories) return;
       if (!categories || !categories.length) return;
       if (selectedCategoryId) return;
-      const first = categories[0];
+      // Get the last category (oldest) since we'll reverse the array for display
+      const reversedCategories = [...categories].reverse();
+      const first = reversedCategories[0];
       setSelectedCategoryId(first._id);
       setIsLoadingItems(true);
       try {
-        const { data: itemsData } = await triggerGetMenuItems({ category: first._id, active: true, available: true });
+        const { data: itemsData } = await triggerGetMenuItems({ category: first._id, active: true });
         const mapped = Array.isArray(itemsData) ? itemsData.map(it => ({
           _id: it._id,
           name: it.name,
           price: `₦${Number(it.price).toFixed(2)}`,
           description: it.description,
           emoji: it.emoji || first.emoji,
-          imageUrl: it.imageUrl || null
+          imageUrl: it.imageUrl || null,
+          isAvailable: it.isAvailable !== false
         })) : [];
         setManualItems(mapped);
       } catch (error) {
@@ -264,7 +267,7 @@ export default function PreOrderPage() {
           ) : (
             <ManualShop
               colors={colors}
-              categories={categories}
+              categories={[...categories].reverse()}
               selectedCategoryId={selectedCategoryId}
               setSelectedCategoryId={setSelectedCategoryId}
               manualItems={manualItems}
@@ -304,7 +307,7 @@ export default function PreOrderPage() {
           setManualContact={setManualContact}
           resetManualCheckout={resetManualCheckout}
           isPreOrder={true}
-          onOrderCreate={async () => {
+          onOrderCreate={async (paymentDetails) => {
             if (cart.length === 0) return;
             if (!manualContact.trim()) {
               throw new Error('Please enter contact information');
@@ -312,6 +315,10 @@ export default function PreOrderPage() {
             if (manualDiningPreference === 'delivery' && !manualDeliveryAddress.trim()) {
               throw new Error('Please enter your delivery address');
             }
+
+            // Payment verification is handled in CartSidebar before calling onOrderCreate
+            // So if we reach here, payment should be verified
+            // But we'll still create the order with the payment details
 
             const preparedOrderItems = cart.map(item => {
               const menuItemId = item._id;
@@ -332,12 +339,17 @@ export default function PreOrderPage() {
               totalAmount: getTotalPrice(),
               status: 'pending',
               paymentMethod: 'online', // CartSidebar only supports transfer
-              paymentConfirmed: true,
+              paymentConfirmed: paymentDetails?.verified || false, // Set to true if payment was verified
               isPreOrder: true,
               table: manualDiningPreference === 'dine-in' 
                 ? `Pre-Order Dine-In`
                 : `Pre-Order Delivery: ${manualDeliveryAddress}`,
-              orderItems: preparedOrderItems
+              orderItems: preparedOrderItems,
+              // Store payment details
+              paymentReference: paymentDetails?.externalReference || paymentDetails?.id,
+              virtualAccountNumber: paymentDetails?.accountNumber,
+              virtualAccountName: paymentDetails?.accountName,
+              virtualAccountBank: paymentDetails?.bankName,
             };
 
             await createOrder(orderData).unwrap();
@@ -462,23 +474,25 @@ export default function PreOrderPage() {
               {/* Action Button */}
               <button
                 className={`w-full font-semibold py-3 rounded-lg transition-all hover:scale-105 text-base ${
-                  !preOrderAllowed || cart.some(ci => ci.name === detailsItem.name)
+                  !preOrderAllowed || detailsItem.isAvailable === false || cart.some(ci => ci.name === detailsItem.name)
                     ? 'bg-gray-300 text-gray-600 cursor-not-allowed' 
                     : 'bg-green-500 hover:bg-green-600 text-white'
                 }`}
                 onClick={() => { 
-                  if (preOrderAllowed && !cart.some(ci => ci.name === detailsItem.name)) { 
+                  if (preOrderAllowed && detailsItem.isAvailable !== false && !cart.some(ci => ci.name === detailsItem.name)) { 
                     addToCart(detailsItem);
                     setDetailsItem(null);
                   } 
                 }}
-                disabled={!preOrderAllowed || cart.some(ci => ci.name === detailsItem.name)}
+                disabled={!preOrderAllowed || detailsItem.isAvailable === false || cart.some(ci => ci.name === detailsItem.name)}
               >
-                {!preOrderAllowed 
-                  ? 'Pre-Orders Unavailable' 
-                  : cart.some(ci => ci.name === detailsItem.name) 
-                    ? '✓ Added to Pre-Order' 
-                    : 'Add to Pre-Order'
+                {detailsItem.isAvailable === false
+                  ? 'Out of Stock'
+                  : !preOrderAllowed 
+                    ? 'Pre-Orders Unavailable' 
+                    : cart.some(ci => ci.name === detailsItem.name) 
+                      ? '✓ Added to Pre-Order' 
+                      : 'Add to Pre-Order'
                 }
               </button>
             </div>

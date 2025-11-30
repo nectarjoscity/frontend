@@ -127,7 +127,7 @@ export default function CatalogManagementPage() {
     formData.append('price', parseFloat(form.get('price')) || 0);
     formData.append('category', selectedCategoryId);
     formData.append('isActive', 'true');
-    formData.append('isAvailable', 'true');
+    formData.append('isAvailable', form.get('isAvailable') === 'on' || form.get('isAvailable') === 'true' ? 'true' : 'false');
     
     // Add image file if selected
     if (itemImageFile) {
@@ -380,11 +380,16 @@ export default function CatalogManagementPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                   {sortedItems.map((i)=> (
                     <div key={i._id} className="p-0 rounded-2xl overflow-hidden transition-all hover:scale-[1.02]" style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, boxShadow: theme==='light' ? '0 2px 8px rgba(16,24,40,0.04)' : '0 2px 8px rgba(0,0,0,0.2)' }}>
-                      <div className="h-32 flex items-center justify-center text-5xl relative overflow-hidden" style={{ background: theme==='light'?'#F9FAFB':'#0B1220', borderBottom: `1px solid ${colors.cardBorder}` }}>
+                      <div className="h-32 flex items-center justify-center text-5xl relative overflow-hidden" style={{ background: theme==='light'?'#F9FAFB':'#0B1220', borderBottom: `1px solid ${colors.cardBorder}`, opacity: i.isAvailable === false ? 0.6 : 1 }}>
                         {i.imageUrl ? (
                           <img src={i.imageUrl} alt={i.name} className="w-full h-full object-cover" />
                         ) : (
                           <span>{i.emoji || '🍽️'}</span>
+                        )}
+                        {i.isAvailable === false && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                            <span className="px-3 py-1 rounded-lg text-sm font-bold text-white bg-red-600">Out of Stock</span>
+                          </div>
                         )}
                         <button className="absolute top-2 right-2 p-2 rounded-lg" style={{ background: 'rgba(0,0,0,0.3)', color: '#fff' }}><IoEllipsisVerticalOutline className="h-4 w-4" /></button>
                       </div>
@@ -395,7 +400,36 @@ export default function CatalogManagementPage() {
                         </div>
                         <div className="text-sm mb-3 line-clamp-2" style={{ color: colors.mutedText }}>{i.description}</div>
                         <div className="flex items-center justify-between pt-2" style={{ borderTop: `1px solid ${colors.cardBorder}` }}>
-                          <span className="inline-flex items-center gap-1 text-sm font-medium" style={{ color: colors.green600 }}><IoCheckmarkCircleOutline className="h-4 w-4" /> Available</span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const formData = new FormData();
+                                  formData.append('isAvailable', (!i.isAvailable).toString());
+                                  await updateMenuItem({ id: i._id, body: formData }).unwrap();
+                                } catch (error) {
+                                  alert('Failed to update availability: ' + (error?.data?.message || error.message));
+                                }
+                              }}
+                              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                                i.isAvailable !== false
+                                  ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                  : 'bg-red-100 text-red-700 hover:bg-red-200'
+                              }`}
+                            >
+                              {i.isAvailable !== false ? (
+                                <>
+                                  <IoCheckmarkCircleOutline className="h-3 w-3 inline mr-1" />
+                                  Available
+                                </>
+                              ) : (
+                                <>
+                                  <IoCloseCircleOutline className="h-3 w-3 inline mr-1" />
+                                  Out of Stock
+                                </>
+                              )}
+                            </button>
+                          </div>
                           <div className="flex items-center gap-2">
                             <button className="p-2 rounded-lg transition-transform hover:scale-110" style={{ background: theme==='light'?'#F3F4F6':'#1F2937', color: colors.text }} onClick={()=> setItemModal({ open:true, editing: i })}><IoCreateOutline className="h-4 w-4" /></button>
                             <button className="p-2 rounded-lg transition-transform hover:scale-110" style={{ background: theme==='light'?'#FEF2F2':'#3A2020', color: '#DC2626' }} onClick={async ()=> {
@@ -544,6 +578,24 @@ export default function CatalogManagementPage() {
                 <div>
                   <label className="text-sm font-semibold mb-2 block" style={{ color: colors.mutedText }}>Description</label>
                   <textarea name="description" defaultValue={itemModal.editing?.description || ''} placeholder="Brief description..." rows={3} className="w-full rounded-lg px-4 py-3 text-base" style={{ background: colors.background, border: `1px solid ${colors.cardBorder}`, color: colors.text }} />
+                </div>
+                
+                {/* Availability Toggle */}
+                <div className="flex items-center gap-3 p-4 rounded-lg" style={{ background: theme === 'light' ? '#F9FAFB' : '#1F2937', border: `1px solid ${colors.cardBorder}` }}>
+                  <input
+                    type="checkbox"
+                    name="isAvailable"
+                    id="isAvailable"
+                    defaultChecked={itemModal.editing?.isAvailable !== false}
+                    className="w-5 h-5 rounded"
+                    style={{ accentColor: colors.green500 }}
+                  />
+                  <label htmlFor="isAvailable" className="text-base font-medium cursor-pointer" style={{ color: colors.text }}>
+                    Item is Available
+                  </label>
+                  <span className="text-sm ml-auto" style={{ color: colors.mutedText }}>
+                    {itemModal.editing?.isAvailable === false ? 'Currently Out of Stock' : 'In Stock'}
+                  </span>
                 </div>
                 
                 {/* Ingredients Section - Only show when editing existing item */}

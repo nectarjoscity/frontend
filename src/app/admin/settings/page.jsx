@@ -7,6 +7,7 @@ import { useTheme } from '../../providers';
 import { IoCheckmarkCircleOutline, IoCloseCircleOutline, IoLocationOutline, IoRefreshOutline, IoTimeOutline } from 'react-icons/io5';
 import { getCurrentLocation, setRestaurantLocation, getRestaurantLocation } from '../../../utils/geofencing';
 import { getPreOrderSettings, setPreOrderSettings } from '../../../utils/preorder';
+import { getLandingPage, setLandingPage } from '../../../utils/landingPage';
 
 export default function SettingsPage() {
   const { colors, theme } = useTheme();
@@ -30,6 +31,11 @@ export default function SettingsPage() {
   const [preOrderDays, setPreOrderDays] = useState([0, 1, 2, 3, 4, 5, 6]);
   const [preOrderSaved, setPreOrderSaved] = useState(false);
   const [preOrderError, setPreOrderError] = useState('');
+  
+  // Landing page settings
+  const [landingPage, setLandingPageState] = useState('main');
+  const [landingPageSaved, setLandingPageSaved] = useState(false);
+  const [landingPageError, setLandingPageError] = useState('');
 
   useEffect(() => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('nv_token') : null;
@@ -54,6 +60,10 @@ export default function SettingsPage() {
       setPreOrderStartTime(preOrder.startTime);
       setPreOrderEndTime(preOrder.endTime);
       setPreOrderDays(preOrder.daysOfWeek);
+      
+      // Load landing page settings
+      const currentLandingPage = getLandingPage();
+      setLandingPageState(currentLandingPage);
     }
   }, [router]);
 
@@ -189,6 +199,18 @@ export default function SettingsPage() {
     } catch (err) {
       setPreOrderError('Failed to save pre-order settings');
       console.error('Error saving pre-order settings:', err);
+    }
+  };
+
+  const handleSaveLandingPage = () => {
+    try {
+      setLandingPage(landingPage);
+      setLandingPageSaved(true);
+      setLandingPageError('');
+      setTimeout(() => setLandingPageSaved(false), 3000);
+    } catch (err) {
+      setLandingPageError('Failed to save landing page setting');
+      console.error('Error saving landing page:', err);
     }
   };
 
@@ -574,6 +596,121 @@ export default function SettingsPage() {
                   </p>
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Landing Page Settings */}
+          <div className="rounded-xl p-6 shadow-lg" style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}` }}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-10 w-10 rounded-xl flex items-center justify-center" style={{ background: colors.green500 || '#10B981', color: '#fff' }}>
+                🏠
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold" style={{ color: colors.text }}>Landing Page Settings</h2>
+                <p className="text-base" style={{ color: colors.mutedText }}>Choose which page visitors see when they visit the root URL</p>
+              </div>
+            </div>
+
+            <div className="space-y-4 mt-6">
+              <div>
+                <label className="block text-base font-medium mb-3" style={{ color: colors.text }}>
+                  Default Landing Page
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <button
+                    onClick={() => {
+                      setLandingPageState('main');
+                      setLandingPageSaved(false);
+                      setLandingPageError('');
+                    }}
+                    className={`p-4 rounded-xl border-2 transition-all ${
+                      landingPage === 'main'
+                        ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
+                        : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                    style={{
+                      background: landingPage === 'main' 
+                        ? (theme === 'light' ? '#F0FDF4' : '#1A2E1A')
+                        : colors.cardBg,
+                      borderColor: landingPage === 'main' 
+                        ? colors.green500 || '#10B981'
+                        : colors.cardBorder
+                    }}
+                  >
+                    <div className="text-left">
+                      <div className="font-semibold text-lg mb-1" style={{ color: colors.text }}>
+                        Main Page
+                      </div>
+                      <div className="text-sm" style={{ color: colors.mutedText }}>
+                        Standard menu browsing and ordering
+                      </div>
+                    </div>
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      setLandingPageState('preorder');
+                      setLandingPageSaved(false);
+                      setLandingPageError('');
+                    }}
+                    className={`p-4 rounded-xl border-2 transition-all ${
+                      landingPage === 'preorder'
+                        ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
+                        : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                    style={{
+                      background: landingPage === 'preorder' 
+                        ? (theme === 'light' ? '#FFF7ED' : '#2E1A0A')
+                        : colors.cardBg,
+                      borderColor: landingPage === 'preorder' 
+                        ? colors.amber500 || '#F59E0B'
+                        : colors.cardBorder
+                    }}
+                  >
+                    <div className="text-left">
+                      <div className="font-semibold text-lg mb-1" style={{ color: colors.text }}>
+                        Pre-Order Page
+                      </div>
+                      <div className="text-sm" style={{ color: colors.mutedText }}>
+                        Pre-order for future pickup or delivery
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {landingPageError && (
+                <p className="text-base flex items-center gap-2" style={{ color: '#EF4444' }}>
+                  <IoCloseCircleOutline className="h-5 w-5" />
+                  {landingPageError}
+                </p>
+              )}
+              {landingPageSaved && !landingPageError && (
+                <p className="text-base flex items-center gap-2" style={{ color: '#10B981' }}>
+                  <IoCheckmarkCircleOutline className="h-5 w-5" />
+                  Landing page setting saved successfully!
+                </p>
+              )}
+
+              <button
+                onClick={handleSaveLandingPage}
+                className="px-6 py-3 rounded-lg font-semibold text-white transition-all hover:scale-105"
+                style={{ background: colors.amber500 }}
+              >
+                Save Landing Page Setting
+              </button>
+
+              <div className="mt-4 p-4 rounded-lg" style={{ background: theme === 'light' ? '#EFF6FF' : '#1E3A5F', border: `1px solid ${theme === 'light' ? '#BFDBFE' : '#3B5F8F'}` }}>
+                <p className="text-sm font-medium mb-2" style={{ color: theme === 'light' ? '#1E40AF' : '#93C5FD' }}>
+                  ℹ️ How it works:
+                </p>
+                <ul className="text-sm space-y-1" style={{ color: theme === 'light' ? '#1E3A8A' : '#60A5FA' }}>
+                  <li>• When set to "Pre-Order Page", visitors to the root URL will be redirected to /preorder</li>
+                  <li>• When set to "Main Page", visitors will see the standard menu page</li>
+                  <li>• You can switch between them anytime from this settings page</li>
+                  <li>• Use this to disable pre-orders by switching back to the main page when the pre-order period ends</li>
+                </ul>
+              </div>
             </div>
           </div>
 

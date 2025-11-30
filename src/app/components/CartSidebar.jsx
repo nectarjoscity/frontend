@@ -1,6 +1,8 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { IoClose, IoTrash } from 'react-icons/io5';
+import { useCreateVirtualAccountMutation, useVerifyPaymentMutation } from '../../services/api';
 
 export default function CartSidebar({
   colors,
@@ -25,6 +27,42 @@ export default function CartSidebar({
   onOrderCreate,
   isPreOrder = false
 }) {
+  const [createVirtualAccount, { isLoading: isCreatingAccount }] = useCreateVirtualAccountMutation();
+  const [verifyPayment, { isLoading: isVerifyingPayment }] = useVerifyPaymentMutation();
+  const [paymentDetails, setPaymentDetails] = useState(null);
+  const [paymentError, setPaymentError] = useState(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  // Create virtual account when user reaches payment step
+  useEffect(() => {
+    if (manualStep === 'payment' && !paymentDetails && !paymentError && !isCreatingAccount) {
+      const createAccount = async () => {
+        try {
+          setPaymentError(null);
+          const totalPrice = parseFloat(String(getTotalPrice()).replace(/[^0-9.]/g, '')) || 0;
+          if (totalPrice <= 0) {
+            setPaymentError('Invalid amount');
+            return;
+          }
+          const result = await createVirtualAccount({ amount: totalPrice }).unwrap();
+          setPaymentDetails(result);
+        } catch (error) {
+          console.error('Error creating virtual account:', error);
+          setPaymentError(error?.data?.message || error?.message || 'Failed to create payment account');
+        }
+      };
+      createAccount();
+    }
+  }, [manualStep, paymentDetails, paymentError, isCreatingAccount, getTotalPrice, createVirtualAccount]);
+
+  // Reset payment details when cart is closed or checkout is reset
+  useEffect(() => {
+    if (!showCart || !isManualCheckout) {
+      setPaymentDetails(null);
+      setPaymentError(null);
+    }
+  }, [showCart, isManualCheckout]);
+
   if (!showCart) return null;
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50" onClick={() => setShowCart(false)}>
@@ -162,44 +200,146 @@ export default function CartSidebar({
                   {manualStep === 'payment' && (
                     <div className="space-y-3">
                       <p className="font-semibold" style={{color: colors.text}}>Payment</p>
-                      <div className="rounded-lg p-3" style={{background: colors.cardBg, border: `1px solid ${colors.cardBorder}`}}>
-                        <p className="text-sm" style={{color: colors.mutedText}}>Transfer the exact amount of <strong className="text-green-600">₦{getTotalPrice()}</strong> to the account shown below to confirm your order.</p>
-                        <div className="mt-3 space-y-2">
-                          <div className="flex justify-between" style={{color: colors.text}}><span>Account Name</span><strong>Nectar Restaurant Ltd</strong></div>
-                          <div className="flex justify-between" style={{color: colors.text}}><span>Account Number</span><strong className="font-mono">2087654321</strong></div>
-                          <div className="flex justify-between" style={{color: colors.text}}><span>Bank</span><strong>First Bank of Nigeria</strong></div>
+                      {isCreatingAccount && !paymentDetails && !paymentError && (
+                        <div className="rounded-lg p-3 text-center" style={{background: colors.cardBg, border: `1px solid ${colors.cardBorder}`}}>
+                          <p className="text-sm" style={{color: colors.mutedText}}>Creating payment account...</p>
                         </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <button 
-                          className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold py-2.5 rounded-lg" 
-                          onClick={async () => { 
-                            if (onOrderCreate) {
-                              try {
-                                await onOrderCreate();
-                                setManualStep('confirmed');
-                              } catch (error) {
-                                console.error('Error creating order:', error);
-                                alert(error?.message || 'Failed to create order');
-                              }
-                            } else {
-                              setManualStep('confirmed');
-                            }
-                          }}
-                        >
-                          ✅ I have completed the transfer
-                        </button>
-                        <button className="bg-gray-200 hover:bg-gray-300 font-semibold px-4 rounded-lg" style={{color: colors.text}} onClick={() => setManualStep('contact-info')}>Back</button>
-                      </div>
+                      )}
+                      {paymentError && (
+                        <div className="rounded-lg p-3" style={{background: '#FEF2F2', border: `1px solid #DC2626`}}>
+                          <p className="text-sm text-red-600">{paymentError}</p>
+                          <button 
+                            className="mt-2 text-sm text-red-600 underline"
+                            onClick={() => {
+                              setPaymentError(null);
+                              setPaymentDetails(null);
+                            }}
+                          >
+                            Try again
+                          </button>
+                        </div>
+                      )}
+                      {paymentDetails && (
+                        <>
+                          <div className="rounded-lg p-3" style={{background: colors.cardBg, border: `1px solid ${colors.cardBorder}`}}>
+                            <p className="text-sm mb-2" style={{color: colors.mutedText}}>
+                              Transfer the exact amount of <strong className="text-green-600">₦{getTotalPrice()}</strong> to the account shown below to confirm your order.
+                            </p>
+                            {paymentDetails.validFor && (
+                              <p className="text-xs mb-3 p-2 rounded" style={{background: '#FEF3C7', color: '#92400E'}}>
+                                ⏰ This account will be active for {Math.floor(paymentDetails.validFor / 60)} minutes
+                              </p>
+                            )}
+                            <div className="mt-3 space-y-2">
+                              {paymentDetails.accountName && (
+                                <div className="flex justify-between" style={{color: colors.text}}>
+                                  <span>Account Name</span>
+                                  <strong className="text-right">{paymentDetails.accountName}</strong>
+                                </div>
+                              )}
+                              {paymentDetails.accountNumber && (
+                                <div className="flex justify-between" style={{color: colors.text}}>
+                                  <span>Account Number</span>
+                                  <strong className="font-mono">{paymentDetails.accountNumber}</strong>
+                                </div>
+                              )}
+                              {paymentDetails.bankName && (
+                                <div className="flex justify-between" style={{color: colors.text}}>
+                                  <span>Bank</span>
+                                  <strong>{paymentDetails.bankName}</strong>
+                                </div>
+                              )}
+                              {paymentDetails.externalReference && (
+                                <div className="flex justify-between text-xs pt-2 border-t" style={{borderColor: colors.cardBorder, color: colors.mutedText}}>
+                                  <span>Reference</span>
+                                  <strong className="font-mono break-all text-right">{paymentDetails.externalReference}</strong>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <button 
+                              className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold py-2.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed" 
+                              disabled={isVerifying || isVerifyingPayment}
+                              onClick={async () => { 
+                                if (!paymentDetails?.externalReference) {
+                                  alert('Payment account details are missing. Please refresh and try again.');
+                                  return;
+                                }
+
+                                setIsVerifying(true);
+                                try {
+                                  // Verify payment before creating order
+                                  const verificationResult = await verifyPayment({ 
+                                    externalReference: paymentDetails.externalReference 
+                                  }).unwrap();
+
+                                  // Check if payment was successful
+                                  if (verificationResult?.status === 'success' || verificationResult?.status === 'completed') {
+                                    // Payment confirmed, create order
+                                    if (onOrderCreate) {
+                                      await onOrderCreate({ ...paymentDetails, verified: true });
+                                      // Success message will be shown in the confirmed step
+                                      setManualStep('confirmed');
+                                    } else {
+                                      setManualStep('confirmed');
+                                    }
+                                  } else {
+                                    // Payment not confirmed
+                                    alert('Payment verification failed. Please ensure you have completed the transfer and try again. If you have already made the payment, please wait a few moments and try again.');
+                                  }
+                                } catch (error) {
+                                  console.error('Error verifying payment:', error);
+                                  const errorMessage = error?.data?.message || error?.message || 'Failed to verify payment';
+                                  
+                                  // If verification fails, still allow order creation but with paymentConfirmed: false
+                                  // The webhook will update it later when payment is received
+                                  if (errorMessage.includes('not found') || errorMessage.includes('pending')) {
+                                    const proceed = confirm('Payment verification is pending. Your order will be created but will only be processed after payment is confirmed. Do you want to proceed?');
+                                    if (proceed) {
+                                      if (onOrderCreate) {
+                                        await onOrderCreate({ ...paymentDetails, verified: false });
+                                        alert('📋 Your order has been created and is pending payment confirmation. We will process your order once payment is verified. You will receive a confirmation once payment is received.');
+                                        setManualStep('confirmed');
+                                      } else {
+                                        setManualStep('confirmed');
+                                      }
+                                    }
+                                  } else {
+                                    alert(`Payment verification error: ${errorMessage}\n\nPlease ensure you have completed the transfer and try again.`);
+                                  }
+                                } finally {
+                                  setIsVerifying(false);
+                                }
+                              }}
+                            >
+                              {isVerifying || isVerifyingPayment ? '⏳ Verifying payment...' : '✅ I have completed the transfer'}
+                            </button>
+                            <button className="bg-gray-200 hover:bg-gray-300 font-semibold px-4 rounded-lg" style={{color: colors.text}} onClick={() => setManualStep('contact-info')}>Back</button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   )}
 
                   {manualStep === 'confirmed' && (
                     <div className="space-y-3">
-                      <p className="font-semibold" style={{color: colors.text}}>🎉 Order confirmed!</p>
-                      <p className="text-sm" style={{color: colors.mutedText}}>We will {manualDiningPreference === 'takeout' ? 'deliver your order to' : 'notify you at'} {manualDiningPreference === 'takeout' ? manualDeliveryAddress : manualContact} when your food is ready.</p>
+                      <div className="rounded-lg p-4" style={{background: theme === 'light' ? '#ECFDF5' : '#052e21', border: `1px solid ${colors.green500 || '#10B981'}`}}>
+                        <p className="font-bold text-lg mb-2 flex items-center gap-2" style={{color: colors.green700 || '#047857'}}>
+                          ✅ Payment Verified & Order Confirmed!
+                        </p>
+                        <p className="text-sm mb-2" style={{color: colors.green700 || '#047857'}}>
+                          Your payment has been successfully verified and your order has been placed.
+                        </p>
+                        <p className="text-sm" style={{color: colors.green700 || '#047857'}}>
+                          {isPreOrder 
+                            ? `We will ${manualDiningPreference === 'delivery' ? 'deliver your pre-order to' : 'notify you at'} ${manualDiningPreference === 'delivery' ? manualDeliveryAddress : manualContact} on the scheduled date.`
+                            : `We will ${manualDiningPreference === 'takeout' ? 'deliver your order to' : 'notify you at'} ${manualDiningPreference === 'takeout' ? manualDeliveryAddress : manualContact} when your food is ready.`
+                          }
+                        </p>
+                      </div>
                       <button 
-                        className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2.5 px-4 rounded-lg" 
+                        className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2.5 px-4 rounded-lg w-full" 
                         onClick={() => { 
                           resetManualCheckout(); 
                           setShowCart(false);

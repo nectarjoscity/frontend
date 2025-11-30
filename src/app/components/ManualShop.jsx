@@ -167,14 +167,15 @@ function ManualShop({
     setIsLoadingItems(true);
     
     try {
-      const { data: itemsData } = await triggerGetMenuItems({ category: c._id, active: true, available: true });
+      const { data: itemsData } = await triggerGetMenuItems({ category: c._id, active: true });
       const mapped = Array.isArray(itemsData) ? itemsData.map(it => ({
         _id: it._id,
         name: it.name,
         price: `₦${Number(it.price).toFixed(2)}`,
         description: it.description,
         emoji: it.emoji || c.emoji,
-        imageUrl: it.imageUrl || null
+        imageUrl: it.imageUrl || null,
+        isAvailable: it.isAvailable !== false
       })) : [];
       
       setManualItems(mapped);
@@ -310,12 +311,23 @@ function ManualShop({
                     Details
                   </button>
                   <button
-                    onClick={() => { if (!cart.some(ci => ci.name === item.name)) { addToCart(item); } }}
-                    disabled={cart.some(ci => ci.name === item.name)}
-                    aria-disabled={cart.some(ci => ci.name === item.name)}
-                    className={`w-1/2 font-semibold py-2.5 rounded-lg transition-colors ${cart.some(ci => ci.name === item.name) ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600 text-white'}`}
+                    onClick={() => { if (!cart.some(ci => ci.name === item.name) && item.isAvailable !== false) { addToCart(item); } }}
+                    disabled={cart.some(ci => ci.name === item.name) || item.isAvailable === false}
+                    aria-disabled={cart.some(ci => ci.name === item.name) || item.isAvailable === false}
+                    className={`w-1/2 font-semibold py-2.5 rounded-lg transition-colors ${
+                      item.isAvailable === false 
+                        ? 'bg-gray-300 text-gray-600 cursor-not-allowed' 
+                        : cart.some(ci => ci.name === item.name) 
+                          ? 'bg-gray-300 text-gray-600 cursor-not-allowed' 
+                          : 'bg-green-500 hover:bg-green-600 text-white'
+                    }`}
                   >
-                    {cart.some(ci => ci.name === item.name) ? '✓ Added to Cart' : 'Add to Cart'}
+                    {item.isAvailable === false 
+                      ? 'Out of Stock' 
+                      : cart.some(ci => ci.name === item.name) 
+                        ? '✓ Added to Cart' 
+                        : 'Add to Cart'
+                    }
                   </button>
                 </div>
               </div>
