@@ -24,12 +24,14 @@ import {
 const AVAILABLE_PAGES = [
   { id: 'dashboard', href: '/admin/dashboard', icon: IoHomeOutline, label: 'Overview' },
   { id: 'catalog', href: '/admin/catalog', icon: IoCubeOutline, label: 'Catalog' },
+  { id: 'inventory', href: '/admin/inventory', icon: IoCubeOutline, label: 'Inventory' },
   { id: 'orders', href: '/admin/orders', icon: IoCartOutline, label: 'Orders' },
   { id: 'kitchen', href: '/admin/kitchen', icon: IoRestaurant, label: 'Kitchen' },
   { id: 'waiters', href: '/admin/waiters', icon: IoPersonAddOutline, label: 'Waiters' },
   { id: 'analytics', href: '#', icon: IoBarChartOutline, label: 'Analytics' },
   { id: 'team', href: '/admin/team', icon: IoPeopleOutline, label: 'Team' },
   { id: 'settings', href: '/admin/settings', icon: IoSettingsOutline, label: 'Settings' },
+  { id: 'accounting', href: '/admin/accounting', icon: IoBarChartOutline, label: 'Accounting' },
 ];
 
 export default function AdminLayout({ title, active = 'dashboard', children, requiredPermission }) {

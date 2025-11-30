@@ -14,8 +14,12 @@ import {
   useCreateMenuItemMutation,
   useUpdateMenuItemMutation,
   useDeleteMenuItemMutation,
+  useGetInventoryItemsQuery,
+  useGetMenuItemIngredientsQuery,
+  useAddMenuItemIngredientMutation,
+  useRemoveMenuItemIngredientMutation,
 } from '../../../services/api';
-import { IoAdd, IoCreateOutline, IoTrashOutline, IoSearchOutline, IoCloudUploadOutline, IoCloudDownloadOutline, IoSwapVerticalOutline, IoCheckmarkCircleOutline, IoCloseCircleOutline, IoEllipsisVerticalOutline, IoImageOutline, IoReloadOutline } from 'react-icons/io5';
+import { IoAdd, IoCreateOutline, IoTrashOutline, IoSearchOutline, IoCloudUploadOutline, IoCloudDownloadOutline, IoSwapVerticalOutline, IoCheckmarkCircleOutline, IoCloseCircleOutline, IoEllipsisVerticalOutline, IoImageOutline, IoReloadOutline, IoWarningOutline } from 'react-icons/io5';
 
 export default function CatalogManagementPage() {
   const { colors, theme } = useTheme();
@@ -50,6 +54,17 @@ export default function CatalogManagementPage() {
   const [isSavingCategory, setIsSavingCategory] = useState(false);
   const [isSavingItem, setIsSavingItem] = useState(false);
   const [imageColors, setImageColors] = useState({}); // Store dominant colors for each item
+  const [showIngredients, setShowIngredients] = useState(false);
+  const [newIngredient, setNewIngredient] = useState({ inventoryItemId: '', quantity: '', unit: '' });
+  
+  // Inventory and ingredients queries
+  const { data: inventoryItems = [] } = useGetInventoryItemsQuery();
+  const { data: menuItemIngredients = [], refetch: refetchIngredients } = useGetMenuItemIngredientsQuery(
+    itemModal.editing?._id || null,
+    { skip: !itemModal.editing?._id }
+  );
+  const [addIngredient] = useAddMenuItemIngredientMutation();
+  const [removeIngredient] = useRemoveMenuItemIngredientMutation();
 
   useEffect(() => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('nv_token') : null;
@@ -530,6 +545,142 @@ export default function CatalogManagementPage() {
                   <label className="text-sm font-semibold mb-2 block" style={{ color: colors.mutedText }}>Description</label>
                   <textarea name="description" defaultValue={itemModal.editing?.description || ''} placeholder="Brief description..." rows={3} className="w-full rounded-lg px-4 py-3 text-base" style={{ background: colors.background, border: `1px solid ${colors.cardBorder}`, color: colors.text }} />
                 </div>
+                
+                {/* Ingredients Section - Only show when editing existing item */}
+                {itemModal.editing?._id && (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-sm font-semibold" style={{ color: colors.mutedText }}>Ingredients</label>
+                      <button
+                        type="button"
+                        onClick={() => setShowIngredients(!showIngredients)}
+                        className="text-sm font-medium px-3 py-1 rounded-lg"
+                        style={{ background: theme === 'light' ? '#F3F4F6' : '#1F2937', color: colors.text }}
+                      >
+                        {showIngredients ? 'Hide' : 'Manage'}
+                      </button>
+                    </div>
+                    
+                    {showIngredients && (
+                      <div className="space-y-3 p-3 rounded-lg" style={{ background: theme === 'light' ? '#F9FAFB' : '#1F2937', border: `1px solid ${colors.cardBorder}` }}>
+                        {/* Existing Ingredients */}
+                        <div className="space-y-2">
+                          {menuItemIngredients.map((ing) => {
+                            const invItem = inventoryItems.find(i => i._id === ing.inventoryItem?._id || i._id === ing.inventoryItem);
+                            const isLowStock = invItem && invItem.currentStock <= invItem.minStock;
+                            return (
+                              <div key={ing._id} className="flex items-center justify-between p-2 rounded-lg" style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}` }}>
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium" style={{ color: colors.text }}>
+                                      {invItem?.name || 'Unknown Item'}
+                                    </span>
+                                    {isLowStock && (
+                                      <IoWarningOutline className="h-4 w-4" style={{ color: colors.amber600 }} />
+                                    )}
+                                  </div>
+                                  <span className="text-sm" style={{ color: colors.mutedText }}>
+                                    {ing.quantity} {ing.unit}
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (confirm('Remove this ingredient?')) {
+                                      try {
+                                        await removeIngredient(ing._id).unwrap();
+                                        refetchIngredients();
+                                      } catch (error) {
+                                        alert('Error removing ingredient: ' + (error.data?.message || error.message));
+                                      }
+                                    }
+                                  }}
+                                  className="p-1 rounded"
+                                  style={{ color: colors.red600 }}
+                                >
+                                  <IoTrashOutline className="h-4 w-4" />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        
+                        {/* Add New Ingredient */}
+                        <div className="pt-2 border-t" style={{ borderColor: colors.cardBorder }}>
+                          <div className="space-y-2">
+                            <select
+                              value={newIngredient.inventoryItemId}
+                              onChange={(e) => {
+                                const selected = inventoryItems.find(i => i._id === e.target.value);
+                                setNewIngredient({
+                                  ...newIngredient,
+                                  inventoryItemId: e.target.value,
+                                  unit: selected?.unit || ''
+                                });
+                              }}
+                              className="w-full rounded-lg px-3 py-2 text-sm"
+                              style={{ background: colors.background, border: `1px solid ${colors.cardBorder}`, color: colors.text }}
+                            >
+                              <option value="">Select inventory item...</option>
+                              {inventoryItems.filter(i => i.isActive).map(item => (
+                                <option key={item._id} value={item._id}>
+                                  {item.name} ({item.unit})
+                                </option>
+                              ))}
+                            </select>
+                            <div className="grid grid-cols-2 gap-2">
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="Quantity"
+                                value={newIngredient.quantity}
+                                onChange={(e) => setNewIngredient({ ...newIngredient, quantity: e.target.value })}
+                                className="rounded-lg px-3 py-2 text-sm"
+                                style={{ background: colors.background, border: `1px solid ${colors.cardBorder}`, color: colors.text }}
+                              />
+                              <input
+                                type="text"
+                                placeholder="Unit"
+                                value={newIngredient.unit}
+                                onChange={(e) => setNewIngredient({ ...newIngredient, unit: e.target.value })}
+                                className="rounded-lg px-3 py-2 text-sm"
+                                style={{ background: colors.background, border: `1px solid ${colors.cardBorder}`, color: colors.text }}
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (!newIngredient.inventoryItemId || !newIngredient.quantity) {
+                                  alert('Please select an item and enter quantity');
+                                  return;
+                                }
+                                try {
+                                  await addIngredient({
+                                    menuItemId: itemModal.editing._id,
+                                    inventoryItemId: newIngredient.inventoryItemId,
+                                    quantity: parseFloat(newIngredient.quantity),
+                                    unit: newIngredient.unit
+                                  }).unwrap();
+                                  setNewIngredient({ inventoryItemId: '', quantity: '', unit: '' });
+                                  refetchIngredients();
+                                } catch (error) {
+                                  alert('Error adding ingredient: ' + (error.data?.message || error.message));
+                                }
+                              }}
+                              className="w-full px-3 py-2 rounded-lg text-sm font-semibold text-white"
+                              style={{ background: colors.blue600 }}
+                            >
+                              <IoAdd className="h-4 w-4 inline mr-1" />
+                              Add Ingredient
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
                 <div className="flex items-center justify-end gap-3 pt-2">
                   <button 
                     type="button" 

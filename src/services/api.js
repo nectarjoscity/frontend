@@ -16,7 +16,7 @@ export const nectarApi = createApi({
       return headers;
     }
   }),
-  tagTypes: ['Categories', 'MenuItems', 'Auth', 'Users', 'Orders', 'Team'],
+  tagTypes: ['Categories', 'MenuItems', 'Auth', 'Users', 'Orders', 'Team', 'Inventory', 'MenuItemIngredients', 'InventoryTransactions', 'InventoryAnalytics', 'Expenses', 'ExpenseAnalytics', 'FinancialReports'],
   endpoints: (builder) => ({
     // Auth
     login: builder.mutation({
@@ -275,6 +275,173 @@ export const nectarApi = createApi({
       query: (body) => ({ url: 'api/contact', method: 'POST', body }),
       transformResponse: (response) => response,
     }),
+    // Inventory endpoints
+    getInventoryItems: builder.query({
+      query: (params = {}) => ({
+        url: 'api/inventory',
+        params: params
+      }),
+      transformResponse: (response) => response?.data || [],
+      providesTags: ['Inventory']
+    }),
+    getInventoryItem: builder.query({
+      query: (id) => `api/inventory/${id}`,
+      transformResponse: (response) => response?.data,
+      providesTags: (result, error, id) => [{ type: 'Inventory', id }]
+    }),
+    createInventoryItem: builder.mutation({
+      query: (data) => ({
+        url: 'api/inventory',
+        method: 'POST',
+        body: data
+      }),
+      transformResponse: (response) => response?.data,
+      invalidatesTags: ['Inventory']
+    }),
+    updateInventoryItem: builder.mutation({
+      query: ({ id, ...data }) => ({
+        url: `api/inventory/${id}`,
+        method: 'PUT',
+        body: data
+      }),
+      transformResponse: (response) => response?.data,
+      invalidatesTags: (result, error, { id }) => [{ type: 'Inventory', id }, 'Inventory']
+    }),
+    deleteInventoryItem: builder.mutation({
+      query: (id) => ({
+        url: `api/inventory/${id}`,
+        method: 'DELETE'
+      }),
+      transformResponse: (response) => response?.data,
+      invalidatesTags: ['Inventory']
+    }),
+    restockInventoryItem: builder.mutation({
+      query: ({ id, ...data }) => ({
+        url: `api/inventory/${id}/restock`,
+        method: 'POST',
+        body: data
+      }),
+      transformResponse: (response) => response?.data,
+      invalidatesTags: (result, error, { id }) => [{ type: 'Inventory', id }, 'Inventory']
+    }),
+    getMenuItemIngredients: builder.query({
+      query: (menuItemId) => `api/inventory/menu-item/${menuItemId}/ingredients`,
+      transformResponse: (response) => response?.data || [],
+      providesTags: (result, error, menuItemId) => [{ type: 'MenuItemIngredients', id: menuItemId }]
+    }),
+    addMenuItemIngredient: builder.mutation({
+      query: (data) => ({
+        url: 'api/inventory/menu-item/ingredients',
+        method: 'POST',
+        body: data
+      }),
+      transformResponse: (response) => response?.data,
+      invalidatesTags: (result, error, { menuItemId }) => [
+        { type: 'MenuItemIngredients', id: menuItemId },
+        'MenuItems'
+      ]
+    }),
+    removeMenuItemIngredient: builder.mutation({
+      query: (id) => ({
+        url: `api/inventory/ingredients/${id}`,
+        method: 'DELETE'
+      }),
+      transformResponse: (response) => response?.data,
+      invalidatesTags: ['MenuItemIngredients', 'MenuItems']
+    }),
+    getInventoryTransactions: builder.query({
+      query: (params = {}) => ({
+        url: 'api/inventory/transactions',
+        params: params
+      }),
+      transformResponse: (response) => response?.data || [],
+      providesTags: ['InventoryTransactions']
+    }),
+    getInventoryAnalytics: builder.query({
+      query: (params = {}) => ({
+        url: 'api/inventory/analytics',
+        params: params
+      }),
+      transformResponse: (response) => response?.data,
+      providesTags: ['InventoryAnalytics']
+    }),
+
+    // Expense Management
+    getExpenses: builder.query({
+      query: (params = {}) => ({
+        url: 'api/accounting/expenses',
+        params: params
+      }),
+      transformResponse: (response) => response?.data || [],
+      providesTags: ['Expenses']
+    }),
+    createExpense: builder.mutation({
+      query: (body) => ({
+        url: 'api/accounting/expenses',
+        method: 'POST',
+        body
+      }),
+      transformResponse: (response) => response?.data,
+      invalidatesTags: ['Expenses', 'ExpenseAnalytics', 'FinancialReports']
+    }),
+    updateExpense: builder.mutation({
+      query: ({ id, ...body }) => ({
+        url: `api/accounting/expenses/${id}`,
+        method: 'PUT',
+        body
+      }),
+      transformResponse: (response) => response?.data,
+      invalidatesTags: ['Expenses', 'ExpenseAnalytics', 'FinancialReports']
+    }),
+    deleteExpense: builder.mutation({
+      query: (id) => ({
+        url: `api/accounting/expenses/${id}`,
+        method: 'DELETE'
+      }),
+      invalidatesTags: ['Expenses', 'ExpenseAnalytics', 'FinancialReports']
+    }),
+    getExpenseAnalytics: builder.query({
+      query: (params = {}) => ({
+        url: 'api/accounting/expenses/analytics',
+        params: params
+      }),
+      transformResponse: (response) => response?.data,
+      providesTags: ['ExpenseAnalytics']
+    }),
+
+    // Financial Reports
+    getProfitLossStatement: builder.query({
+      query: (params) => ({
+        url: 'api/accounting/reports/profit-loss',
+        params: params
+      }),
+      transformResponse: (response) => response?.data,
+      providesTags: ['FinancialReports']
+    }),
+    getCashFlowStatement: builder.query({
+      query: (params) => ({
+        url: 'api/accounting/reports/cash-flow',
+        params: params
+      }),
+      transformResponse: (response) => response?.data,
+      providesTags: ['FinancialReports']
+    }),
+    getRevenueAnalysis: builder.query({
+      query: (params) => ({
+        url: 'api/accounting/reports/revenue-analysis',
+        params: params
+      }),
+      transformResponse: (response) => response?.data,
+      providesTags: ['FinancialReports']
+    }),
+    getTaxSummary: builder.query({
+      query: (params) => ({
+        url: 'api/accounting/reports/tax-summary',
+        params: params
+      }),
+      transformResponse: (response) => response?.data,
+      providesTags: ['FinancialReports']
+    }),
   }),
 });
 
@@ -302,4 +469,24 @@ export const {
   useUpdateTeamMemberMutation,
   useDeleteTeamMemberMutation,
   useSubmitContactFormMutation,
+  useGetInventoryItemsQuery,
+  useGetInventoryItemQuery,
+  useCreateInventoryItemMutation,
+  useUpdateInventoryItemMutation,
+  useDeleteInventoryItemMutation,
+  useRestockInventoryItemMutation,
+  useGetMenuItemIngredientsQuery,
+  useAddMenuItemIngredientMutation,
+  useRemoveMenuItemIngredientMutation,
+  useGetInventoryTransactionsQuery,
+  useGetInventoryAnalyticsQuery,
+  useGetExpensesQuery,
+  useCreateExpenseMutation,
+  useUpdateExpenseMutation,
+  useDeleteExpenseMutation,
+  useGetExpenseAnalyticsQuery,
+  useGetProfitLossStatementQuery,
+  useGetCashFlowStatementQuery,
+  useGetRevenueAnalysisQuery,
+  useGetTaxSummaryQuery,
 } = nectarApi;
