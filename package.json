@@ -4,9 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
+    "build": "next build",
+    "build:turbo": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "clean": "rm -rf .next out"
   },
   "dependencies": {
     "@reduxjs/toolkit": "^2.9.0",

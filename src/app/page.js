@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useTransition, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import Script from 'next/script';
 import { useGetCategoriesQuery, useLazyGetMenuItemsQuery, useCreateOrderMutation } from '../services/api';
 import { interpret, toChatMessageFromResponse } from '../services/nlp';
 import { useTheme } from './providers';
@@ -798,8 +799,52 @@ export default function RestaurantChat() {
     // Optionally disable ordering functionality
   };
 
+  const restaurantSchema = {
+    "@context": "https://schema.org",
+    "@type": "Restaurant",
+    "name": "Nectar Restaurant",
+    "image": "/logo_black.svg",
+    "description": "Nectar Restaurant - Discover amazing dining experiences. Browse our menu, order your favorites, and enjoy fresh, delicious meals.",
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "123 Restaurant Street",
+      "addressLocality": "Jos",
+      "addressRegion": "Plateau State",
+      "addressCountry": "NG"
+    },
+    "telephone": "+2348108613890",
+    "email": "nectarjoscity@gmail.com",
+    "servesCuisine": "International",
+    "priceRange": "$$",
+    "openingHoursSpecification": [
+      {
+        "@type": "OpeningHoursSpecification",
+        "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+        "opens": "09:00",
+        "closes": "22:00"
+      },
+      {
+        "@type": "OpeningHoursSpecification",
+        "dayOfWeek": ["Saturday", "Sunday"],
+        "opens": "10:00",
+        "closes": "23:00"
+      }
+    ],
+    "menu": "/",
+    "acceptsReservations": "True",
+    "url": typeof window !== 'undefined' ? window.location.origin : "https://nectarv.com",
+    "sameAs": ["https://wa.me/2348108613890"]
+  };
+
   return (
     <GeofenceGuard onOutsideGeofence={handleOutsideGeofence}>
+      <Script
+        id="restaurant-schema"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(restaurantSchema)
+        }}
+      />
       <div className="h-screen flex flex-col" style={{background: colors.background}}>
       {/* Header */}
       <HeaderNav colors={colors} theme={theme} setTheme={setTheme} mode={mode} setShowCart={setShowCart} getTotalItems={getTotalItems} />

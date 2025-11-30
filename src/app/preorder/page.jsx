@@ -29,6 +29,14 @@ export default function PreOrderPage() {
   const [detailsItem, setDetailsItem] = useState(null);
   const [timeRemaining, setTimeRemaining] = useState(null);
   const [preOrderAllowed, setPreOrderAllowed] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [settings, setSettings] = useState(null);
+
+  // Set mounted state and load settings on client only
+  useEffect(() => {
+    setMounted(true);
+    setSettings(getPreOrderSettings());
+  }, []);
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -185,8 +193,6 @@ export default function PreOrderPage() {
     setManualTransferConfirmed(false);
   };
 
-  const settings = getPreOrderSettings();
-
   return (
     <div className="min-h-screen flex flex-col" style={{ background: colors.background }}>
       <HeaderNav 
@@ -199,12 +205,12 @@ export default function PreOrderPage() {
       />
 
       {/* Pre-Order Disabled Banner */}
-      {!preOrderAllowed && (
+      {!preOrderAllowed && mounted && (
         <div className="px-4 py-3 text-center" style={{ background: colors.red500 || '#EF4444', color: '#fff' }}>
           <div className="flex items-center justify-center gap-2">
             <IoTimeOutline className="h-5 w-5" />
             <span className="font-semibold">
-              {settings.enabled 
+              {settings?.enabled 
                 ? `Pre-orders are currently unavailable. ${timeRemaining && timeRemaining > 0 ? `Available in: ${formatTimeRemaining(timeRemaining)}` : 'Please check back during pre-order hours.'}`
                 : 'Pre-orders are currently disabled. Please contact the restaurant for more information.'
               }
