@@ -206,6 +206,14 @@ function ManualShop({
 
       {isLoadingItems ? (
         <div className="text-center py-10" style={{color: colors.mutedText}}>Loading items…</div>
+      ) : manualItems.length === 0 ? (
+        <div className="text-center py-16">
+          <div className="text-6xl mb-4">🍽️</div>
+          <h3 className="text-xl font-semibold mb-2" style={{color: colors.text}}>No items available</h3>
+          <p className="text-base" style={{color: colors.mutedText}}>
+            This category is currently empty. Check back soon or explore other categories!
+          </p>
+        </div>
       ) : (
         <>
           <style>{masonryStyles}</style>
