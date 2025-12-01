@@ -1,15 +1,14 @@
 'use client';
 
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { useGetCategoriesQuery, useLazyGetMenuItemsQuery, useCreateOrderMutation, useVerifyPaymentMutation } from '../../services/api';
+import { useGetCategoriesQuery, useLazyGetMenuItemsQuery, useCreateOrderMutation } from '../../services/api';
 import { useTheme } from '../providers';
-import { IoClose, IoSend, IoTrash, IoCashOutline, IoCardOutline, IoCheckmarkCircleOutline, IoTimeOutline } from 'react-icons/io5';
+import { IoClose } from 'react-icons/io5';
 import { HiShoppingCart } from 'react-icons/hi2';
 import HeaderNav from '../components/HeaderNav';
 import ManualShop from '../components/ManualShop';
 import CartSidebar from '../components/CartSidebar';
-import { isPreOrderAllowed, getTimeUntilPreOrderStart, getTimeUntilPreOrderEnd, formatTimeRemaining, getPreOrderSettings } from '../../utils/preorder';
 
 export default function PreOrderPage() {
   const { colors, theme, setTheme } = useTheme();
@@ -27,16 +26,6 @@ export default function PreOrderPage() {
   const [manualPaymentMethod, setManualPaymentMethod] = useState('cash');
   const [manualTransferConfirmed, setManualTransferConfirmed] = useState(false);
   const [detailsItem, setDetailsItem] = useState(null);
-  const [timeRemaining, setTimeRemaining] = useState(null);
-  const [preOrderAllowed, setPreOrderAllowed] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const [settings, setSettings] = useState(null);
-
-  // Set mounted state and load settings on client only
-  useEffect(() => {
-    setMounted(true);
-    setSettings(getPreOrderSettings());
-  }, []);
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -62,61 +51,11 @@ export default function PreOrderPage() {
   
   const { data: categories = [], isLoading: isLoadingCategories } = useGetCategoriesQuery({ active: true });
   const [triggerGetMenuItems] = useLazyGetMenuItemsQuery();
-  const [createOrder, { isLoading: isCreatingOrder }] = useCreateOrderMutation();
+  const [createOrder] = useCreateOrderMutation();
 
-  // Check if pre-orders are allowed
-  useEffect(() => {
-    const checkPreOrderStatus = () => {
-      const allowed = isPreOrderAllowed();
-      setPreOrderAllowed(allowed);
-      
-      if (allowed) {
-        const timeUntilEnd = getTimeUntilPreOrderEnd();
-        if (timeUntilEnd) {
-          setTimeRemaining(timeUntilEnd);
-        }
-      } else {
-        const timeUntilStart = getTimeUntilPreOrderStart();
-        if (timeUntilStart) {
-          setTimeRemaining(timeUntilStart);
-        }
-      }
-    };
-
-    checkPreOrderStatus();
-    const interval = setInterval(checkPreOrderStatus, 1000); // Check every second
-
-    return () => clearInterval(interval);
-  }, []);
-
-  // Update time remaining display
-  useEffect(() => {
-    if (timeRemaining !== null) {
-      const interval = setInterval(() => {
-        if (preOrderAllowed) {
-          const timeUntilEnd = getTimeUntilPreOrderEnd();
-          if (timeUntilEnd) {
-            setTimeRemaining(timeUntilEnd);
-          } else {
-            setPreOrderAllowed(false);
-            setTimeRemaining(getTimeUntilPreOrderStart());
-          }
-        } else {
-          const timeUntilStart = getTimeUntilPreOrderStart();
-          if (timeUntilStart) {
-            setTimeRemaining(timeUntilStart);
-          }
-        }
-      }, 1000);
-
-      return () => clearInterval(interval);
-    }
-  }, [preOrderAllowed, timeRemaining]);
-
-  // Default load first category items when pre-orders are allowed (oldest first)
+  // Default load first category items (oldest first)
   useEffect(() => {
     const preloadFirstCategory = async () => {
-      if (!preOrderAllowed) return;
       if (isLoadingCategories) return;
       if (!categories || !categories.length) return;
       if (selectedCategoryId) return;
@@ -144,7 +83,7 @@ export default function PreOrderPage() {
       }
     };
     preloadFirstCategory();
-  }, [preOrderAllowed, isLoadingCategories, categories, selectedCategoryId, triggerGetMenuItems]);
+  }, [isLoadingCategories, categories, selectedCategoryId, triggerGetMenuItems]);
 
   const getTotalItems = () => {
     return cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
@@ -158,8 +97,6 @@ export default function PreOrderPage() {
   };
 
   const addToCart = (item) => {
-    if (!preOrderAllowed) return;
-    
     const existingItem = cart.find(cartItem => cartItem._id === item._id);
     if (existingItem) {
       setCart(cart.map(cartItem =>
@@ -207,29 +144,6 @@ export default function PreOrderPage() {
         getTotalItems={getTotalItems} 
       />
 
-      {/* Pre-Order Disabled Banner */}
-      {!preOrderAllowed && mounted && (
-        <div className="px-4 py-3 text-center" style={{ background: colors.red500 || '#EF4444', color: '#fff' }}>
-          <div className="flex items-center justify-center gap-2">
-            <IoTimeOutline className="h-5 w-5" />
-            {/* <span className="font-semibold">
-              {settings?.enabled 
-                ? `Pre-orders are currently unavailable. ${timeRemaining && timeRemaining > 0 ? `Available in: ${formatTimeRemaining(timeRemaining)}` : 'Please check back during pre-order hours.'}`
-                : 'Pre-orders are currently disabled. Please contact the restaurant for more information.'
-              }
-            </span> */}
-
-<span className="font-semibold">
-              {settings?.enabled 
-                ? `Pre-orders are currently unavailable. ${timeRemaining && timeRemaining > 0 ? `Available in: ${formatTimeRemaining(timeRemaining)}` : 'Please check back during pre-order hours.'}`
-                : 'Pre-orders are currently disabled. Please contact the restaurant for more information.'
-              }
-            </span>
-
-          </div>
-        </div>
-      )}
-
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto">
         {/* Hero Section */}
@@ -250,16 +164,6 @@ export default function PreOrderPage() {
             <p className="mt-3 sm:mt-4 text-lg sm:text-xl md:text-2xl font-medium px-4 sm:px-0 max-w-2xl" style={{color: colors.mutedText}}>
               Pre-order your favorites today, and we'll deliver them fresh on launch day.
             </p>
-            {/* Pre-Order Countdown */}
-            {preOrderAllowed && timeRemaining && (
-              <div className="mt-6 px-6 py-3 rounded-full inline-flex items-center gap-2" style={{ background: colors.amber500, color: '#fff' }}>
-                <IoTimeOutline className="h-5 w-5" />
-                <span className="font-semibold text-base sm:text-lg">
-                  {/* Pre-Order Window Closes in: {formatTimeRemaining(timeRemaining)} */}
-                  Pre-Order Window Closes on: December 14th, 2025
-                </span>
-              </div>
-            )}
           </div>
         </div>
 
@@ -483,25 +387,23 @@ export default function PreOrderPage() {
               {/* Action Button */}
               <button
                 className={`w-full font-semibold py-3 rounded-lg transition-all hover:scale-105 text-base ${
-                  !preOrderAllowed || detailsItem.isAvailable === false || cart.some(ci => ci.name === detailsItem.name)
+                  detailsItem.isAvailable === false || cart.some(ci => ci.name === detailsItem.name)
                     ? 'bg-gray-300 text-gray-600 cursor-not-allowed' 
                     : 'bg-green-500 hover:bg-green-600 text-white'
                 }`}
                 onClick={() => { 
-                  if (preOrderAllowed && detailsItem.isAvailable !== false && !cart.some(ci => ci.name === detailsItem.name)) { 
+                  if (detailsItem.isAvailable !== false && !cart.some(ci => ci.name === detailsItem.name)) { 
                     addToCart(detailsItem);
                     setDetailsItem(null);
                   } 
                 }}
-                disabled={!preOrderAllowed || detailsItem.isAvailable === false || cart.some(ci => ci.name === detailsItem.name)}
+                disabled={detailsItem.isAvailable === false || cart.some(ci => ci.name === detailsItem.name)}
               >
                 {detailsItem.isAvailable === false
                   ? 'Out of Stock'
-                  : !preOrderAllowed 
-                    ? 'Pre-Orders Unavailable' 
-                    : cart.some(ci => ci.name === detailsItem.name) 
-                      ? '✓ Added to Pre-Order' 
-                      : 'Add to Pre-Order'
+                  : cart.some(ci => ci.name === detailsItem.name) 
+                    ? '✓ Added to Pre-Order' 
+                    : 'Add to Pre-Order'
                 }
               </button>
             </div>
