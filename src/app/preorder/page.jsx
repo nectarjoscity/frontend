@@ -164,6 +164,34 @@ export default function PreOrderPage() {
             <p className="mt-3 sm:mt-4 text-lg sm:text-xl md:text-2xl font-medium px-4 sm:px-0 max-w-2xl" style={{color: colors.mutedText}}>
               Pre-order your favorites today, and we'll deliver them fresh on launch day.
             </p>
+            
+            {/* Noticeable Pre-Order Deadline Banner */}
+            <style>{`
+              @keyframes slowPulse {
+                0%, 100% { opacity: 1; transform: scale(1); }
+                50% { opacity: 0.9; transform: scale(1.02); }
+              }
+            `}</style>
+            <div 
+              className="mt-8"
+              style={{ animation: 'slowPulse 4s ease-in-out infinite' }}
+            >
+              <div 
+                className="inline-flex items-center gap-3 px-6 py-4 rounded-2xl shadow-lg border-2"
+                style={{ 
+                  background: 'linear-gradient(135deg, #73BE00 0%, #4B7F00 100%)',
+                  borderColor: '#9AE62B',
+                  boxShadow: '0 4px 20px rgba(115, 190, 0, 0.4)'
+                }}
+              >
+                <span className="text-3xl">🌿</span>
+                <div className="text-left">
+                  <p className="text-white text-base font-medium opacity-90">Pre-Order Window Closes on:</p>
+                  <p className="text-white text-xl sm:text-2xl font-bold">December 14th, 2025</p>
+                </div>
+                <span className="text-3xl">✨</span>
+              </div>
+            </div>
           </div>
         </div>
 
