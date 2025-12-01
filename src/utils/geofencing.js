@@ -89,8 +89,15 @@ export function isWithinGeofence(latitude, longitude) {
 // Get current location
 export function getCurrentLocation() {
   return new Promise((resolve, reject) => {
-    if (typeof window === 'undefined' || !navigator.geolocation) {
-      reject(new Error('Geolocation is not supported by this browser'));
+    if (typeof window === 'undefined') {
+      // SSR - resolve with null location (will trigger graceful degradation)
+      resolve({ latitude: null, longitude: null, accuracy: null, unavailable: true });
+      return;
+    }
+    
+    if (!navigator.geolocation) {
+      console.warn('[Geofence] Geolocation not supported, using graceful degradation');
+      resolve({ latitude: null, longitude: null, accuracy: null, unavailable: true });
       return;
     }
 
@@ -99,23 +106,30 @@ export function getCurrentLocation() {
         resolve({
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy
+          accuracy: position.coords.accuracy,
+          unavailable: false
         });
       },
       (error) => {
-        let errorMessage = 'Unknown error';
+        // Handle gracefully - don't throw errors for common scenarios
+        let reason = 'unknown';
         switch(error.code) {
           case error.PERMISSION_DENIED:
-            errorMessage = 'Location permission denied';
+            reason = 'permission_denied';
+            console.warn('[Geofence] Location permission denied - using graceful degradation');
             break;
           case error.POSITION_UNAVAILABLE:
-            errorMessage = 'Location information unavailable';
+            reason = 'position_unavailable';
+            console.warn('[Geofence] Location unavailable (GPS/network issue) - using graceful degradation');
             break;
           case error.TIMEOUT:
-            errorMessage = 'Location request timeout';
+            reason = 'timeout';
+            console.warn('[Geofence] Location request timed out - using graceful degradation');
             break;
         }
-        reject(new Error(errorMessage));
+        // Instead of rejecting, resolve with unavailable flag
+        // This prevents unhandled promise rejections and allows graceful degradation
+        resolve({ latitude: null, longitude: null, accuracy: null, unavailable: true, reason });
       },
       {
         enableHighAccuracy: true,
@@ -129,9 +143,9 @@ export function getCurrentLocation() {
 // Watch location changes
 export function watchLocation(onLocationUpdate, onError) {
   if (typeof window === 'undefined' || !navigator.geolocation) {
-    if (onError) {
-      onError(new Error('Geolocation is not supported'));
-    }
+    // Call with unavailable location instead of error
+    console.warn('[Geofence] Geolocation not supported for watch');
+    onLocationUpdate({ latitude: null, longitude: null, accuracy: null, unavailable: true });
     return null;
   }
 
@@ -140,26 +154,30 @@ export function watchLocation(onLocationUpdate, onError) {
       const location = {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
-        accuracy: position.coords.accuracy
+        accuracy: position.coords.accuracy,
+        unavailable: false
       };
       onLocationUpdate(location);
     },
     (error) => {
-      if (onError) {
-        let errorMessage = 'Unknown error';
-        switch(error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage = 'Location permission denied';
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMessage = 'Location information unavailable';
-            break;
-          case error.TIMEOUT:
-            errorMessage = 'Location request timeout';
-            break;
-        }
-        onError(new Error(errorMessage));
+      // Handle gracefully - call onLocationUpdate with unavailable flag instead of error
+      let reason = 'unknown';
+      switch(error.code) {
+        case error.PERMISSION_DENIED:
+          reason = 'permission_denied';
+          console.warn('[Geofence] Watch: Location permission denied');
+          break;
+        case error.POSITION_UNAVAILABLE:
+          reason = 'position_unavailable';
+          console.warn('[Geofence] Watch: Location unavailable');
+          break;
+        case error.TIMEOUT:
+          reason = 'timeout';
+          console.warn('[Geofence] Watch: Location timeout');
+          break;
       }
+      // Instead of calling onError, call onLocationUpdate with unavailable flag
+      onLocationUpdate({ latitude: null, longitude: null, accuracy: null, unavailable: true, reason });
     },
     {
       enableHighAccuracy: true,

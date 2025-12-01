@@ -212,12 +212,20 @@ export default function PreOrderPage() {
         <div className="px-4 py-3 text-center" style={{ background: colors.red500 || '#EF4444', color: '#fff' }}>
           <div className="flex items-center justify-center gap-2">
             <IoTimeOutline className="h-5 w-5" />
-            <span className="font-semibold">
+            {/* <span className="font-semibold">
+              {settings?.enabled 
+                ? `Pre-orders are currently unavailable. ${timeRemaining && timeRemaining > 0 ? `Available in: ${formatTimeRemaining(timeRemaining)}` : 'Please check back during pre-order hours.'}`
+                : 'Pre-orders are currently disabled. Please contact the restaurant for more information.'
+              }
+            </span> */}
+
+<span className="font-semibold">
               {settings?.enabled 
                 ? `Pre-orders are currently unavailable. ${timeRemaining && timeRemaining > 0 ? `Available in: ${formatTimeRemaining(timeRemaining)}` : 'Please check back during pre-order hours.'}`
                 : 'Pre-orders are currently disabled. Please contact the restaurant for more information.'
               }
             </span>
+
           </div>
         </div>
       )}
@@ -247,7 +255,8 @@ export default function PreOrderPage() {
               <div className="mt-6 px-6 py-3 rounded-full inline-flex items-center gap-2" style={{ background: colors.amber500, color: '#fff' }}>
                 <IoTimeOutline className="h-5 w-5" />
                 <span className="font-semibold text-base sm:text-lg">
-                  Pre-Order Window Closes in: {formatTimeRemaining(timeRemaining)}
+                  {/* Pre-Order Window Closes in: {formatTimeRemaining(timeRemaining)} */}
+                  Pre-Order Window Closes on: December 14th, 2025
                 </span>
               </div>
             )}

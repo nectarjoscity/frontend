@@ -19,6 +19,19 @@ export default function GeofenceGuard({ children, onOutsideGeofence }) {
     // Watch for location changes (continuous monitoring)
     const id = watchLocation(
       (loc) => {
+        // Handle unavailable location gracefully
+        if (loc.unavailable) {
+          console.log('[Geofence] Location unavailable, using graceful degradation');
+          // Try WiFi fallback
+          const onWiFi = checkWiFiConnection();
+          if (onWiFi === true) {
+            console.log('[Geofence] Using WiFi fallback - device on WiFi, allowing usage');
+          }
+          setIsWithinBounds(true); // Allow usage
+          setLocationError(null);
+          return;
+        }
+        
         setLocation(loc);
         const within = isWithinGeofence(loc.latitude, loc.longitude);
         setIsWithinBounds(within);
@@ -30,20 +43,7 @@ export default function GeofenceGuard({ children, onOutsideGeofence }) {
           }
         }
       },
-      (error) => {
-        console.error('[Geofence] Location watch error:', error);
-        // Try WiFi fallback
-        const onWiFi = checkWiFiConnection();
-        if (onWiFi === true) {
-          console.log('[Geofence] Using WiFi fallback - device on WiFi, allowing usage');
-          setIsWithinBounds(true);
-          setLocationError(null);
-        } else {
-          setLocationError(error.message);
-          // Allow usage if location can't be determined (graceful degradation)
-          setIsWithinBounds(true);
-        }
-      }
+      null // No error callback needed - errors handled via unavailable flag
     );
 
     setWatchId(id);
@@ -66,34 +66,32 @@ export default function GeofenceGuard({ children, onOutsideGeofence }) {
   }, []);
 
   const checkLocation = async () => {
-    try {
-      const loc = await getCurrentLocation();
-      setLocation(loc);
-      const within = isWithinGeofence(loc.latitude, loc.longitude);
-      setIsWithinBounds(within);
-      
-      if (!within) {
-        console.warn('[Geofence] Device is outside restaurant bounds');
-        if (onOutsideGeofence) {
-          onOutsideGeofence(loc);
-        }
-      } else {
-        setLocationError(null);
-      }
-    } catch (error) {
-      console.error('[Geofence] Error getting location:', error);
-      
+    const loc = await getCurrentLocation();
+    
+    // Handle unavailable location gracefully
+    if (loc.unavailable) {
+      console.log('[Geofence] Location unavailable, using graceful degradation');
       // Try WiFi fallback
       const onWiFi = checkWiFiConnection();
       if (onWiFi === true) {
         console.log('[Geofence] Using WiFi fallback - device on WiFi, allowing usage');
-        setIsWithinBounds(true);
-        setLocationError(null);
-      } else {
-        setLocationError(error.message);
-        // Allow usage if location can't be determined (graceful degradation)
-        setIsWithinBounds(true);
       }
+      setIsWithinBounds(true); // Allow usage
+      setLocationError(null);
+      return;
+    }
+    
+    setLocation(loc);
+    const within = isWithinGeofence(loc.latitude, loc.longitude);
+    setIsWithinBounds(within);
+    
+    if (!within) {
+      console.warn('[Geofence] Device is outside restaurant bounds');
+      if (onOutsideGeofence) {
+        onOutsideGeofence(loc);
+      }
+    } else {
+      setLocationError(null);
     }
   };
 

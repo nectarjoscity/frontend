@@ -7,14 +7,14 @@ const LANDING_PAGE_KEY = 'nectarv_landing_page';
  * @returns {string} 'main' or 'preorder'
  */
 export function getLandingPage() {
-  if (typeof window === 'undefined') return 'main'; // Default for SSR
+  if (typeof window === 'undefined') return 'preorder'; // Default for SSR
   
   try {
     const stored = localStorage.getItem(LANDING_PAGE_KEY);
-    return stored === 'preorder' ? 'preorder' : 'main';
+    return stored === 'main' ? 'main' : 'preorder'; // Default to preorder
   } catch (error) {
     console.error('Error getting landing page:', error);
-    return 'main';
+    return 'preorder';
   }
 }
 
