@@ -16,7 +16,7 @@ export const nectarApi = createApi({
       return headers;
     }
   }),
-  tagTypes: ['Categories', 'MenuItems', 'Auth', 'Users', 'Orders', 'Team', 'Inventory', 'MenuItemIngredients', 'InventoryTransactions', 'InventoryAnalytics', 'Expenses', 'ExpenseAnalytics', 'FinancialReports'],
+  tagTypes: ['Categories', 'MenuItems', 'Auth', 'Users', 'Orders', 'Team', 'Inventory', 'MenuItemIngredients', 'InventoryTransactions', 'InventoryAnalytics', 'Expenses', 'ExpenseAnalytics', 'FinancialReports', 'Invoices'],
   endpoints: (builder) => ({
     // Auth
     login: builder.mutation({
@@ -456,6 +456,100 @@ export const nectarApi = createApi({
       transformResponse: (response) => response?.data,
       providesTags: ['FinancialReports']
     }),
+
+    // Invoice Management
+    getInvoices: builder.query({
+      query: (params = {}) => ({
+        url: 'api/invoices',
+        params: params
+      }),
+      transformResponse: (response) => response?.data || [],
+      providesTags: (result) =>
+        result
+          ? [
+            ...result.map((inv) => ({ type: 'Invoices', id: inv._id })),
+            { type: 'Invoices', id: 'LIST' },
+          ]
+          : [{ type: 'Invoices', id: 'LIST' }]
+    }),
+    getInvoice: builder.query({
+      query: (id) => `api/invoices/${id}`,
+      transformResponse: (response) => response?.data,
+      providesTags: (result, error, id) => [{ type: 'Invoices', id }]
+    }),
+    getInvoiceStats: builder.query({
+      query: () => 'api/invoices/stats',
+      transformResponse: (response) => response?.data,
+      providesTags: [{ type: 'Invoices', id: 'STATS' }]
+    }),
+    createInvoice: builder.mutation({
+      query: (body) => ({
+        url: 'api/invoices',
+        method: 'POST',
+        body
+      }),
+      transformResponse: (response) => response?.data,
+      invalidatesTags: [{ type: 'Invoices', id: 'LIST' }, { type: 'Invoices', id: 'STATS' }]
+    }),
+    updateInvoice: builder.mutation({
+      query: ({ id, ...body }) => ({
+        url: `api/invoices/${id}`,
+        method: 'PUT',
+        body
+      }),
+      transformResponse: (response) => response?.data,
+      invalidatesTags: (result, error, { id }) => [
+        { type: 'Invoices', id: 'LIST' },
+        { type: 'Invoices', id },
+        { type: 'Invoices', id: 'STATS' }
+      ]
+    }),
+    submitInvoice: builder.mutation({
+      query: (id) => ({
+        url: `api/invoices/${id}/submit`,
+        method: 'POST'
+      }),
+      transformResponse: (response) => response?.data,
+      invalidatesTags: (result, error, id) => [
+        { type: 'Invoices', id: 'LIST' },
+        { type: 'Invoices', id },
+        { type: 'Invoices', id: 'STATS' }
+      ]
+    }),
+    approveInvoice: builder.mutation({
+      query: (id) => ({
+        url: `api/invoices/${id}/approve`,
+        method: 'POST'
+      }),
+      transformResponse: (response) => response?.data,
+      invalidatesTags: [
+        { type: 'Invoices', id: 'LIST' },
+        { type: 'Invoices', id: 'STATS' },
+        'Expenses',
+        'ExpenseAnalytics',
+        'FinancialReports'
+      ]
+    }),
+    rejectInvoice: builder.mutation({
+      query: ({ id, reason }) => ({
+        url: `api/invoices/${id}/reject`,
+        method: 'POST',
+        body: { reason }
+      }),
+      transformResponse: (response) => response?.data,
+      invalidatesTags: (result, error, { id }) => [
+        { type: 'Invoices', id: 'LIST' },
+        { type: 'Invoices', id },
+        { type: 'Invoices', id: 'STATS' }
+      ]
+    }),
+    deleteInvoice: builder.mutation({
+      query: (id) => ({
+        url: `api/invoices/${id}`,
+        method: 'DELETE'
+      }),
+      invalidatesTags: [{ type: 'Invoices', id: 'LIST' }, { type: 'Invoices', id: 'STATS' }]
+    }),
   }),
 });
 
@@ -506,4 +600,14 @@ export const {
   useGetTaxSummaryQuery,
   useCreateVirtualAccountMutation,
   useVerifyPaymentMutation,
+  // Invoice hooks
+  useGetInvoicesQuery,
+  useGetInvoiceQuery,
+  useGetInvoiceStatsQuery,
+  useCreateInvoiceMutation,
+  useUpdateInvoiceMutation,
+  useSubmitInvoiceMutation,
+  useApproveInvoiceMutation,
+  useRejectInvoiceMutation,
+  useDeleteInvoiceMutation,
 } = nectarApi;

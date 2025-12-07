@@ -19,6 +19,7 @@ import {
   IoSearchOutline,
   IoRestaurant,
   IoPersonAddOutline,
+  IoReceiptOutline,
 } from 'react-icons/io5';
 
 const AVAILABLE_PAGES = [
@@ -27,6 +28,7 @@ const AVAILABLE_PAGES = [
   { id: 'inventory', href: '/admin/inventory', icon: IoCubeOutline, label: 'Inventory' },
   { id: 'orders', href: '/admin/orders', icon: IoCartOutline, label: 'Orders' },
   { id: 'kitchen', href: '/admin/kitchen', icon: IoRestaurant, label: 'Kitchen' },
+  { id: 'invoices', href: '/admin/invoices', icon: IoReceiptOutline, label: 'Invoices' },
   { id: 'waiters', href: '/admin/waiters', icon: IoPersonAddOutline, label: 'Waiters' },
   { id: 'analytics', href: '#', icon: IoBarChartOutline, label: 'Analytics' },
   { id: 'team', href: '/admin/team', icon: IoPeopleOutline, label: 'Team' },
@@ -39,11 +41,11 @@ export default function AdminLayout({ title, active = 'dashboard', children, req
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mounted, setMounted] = useState(false);
-  
+
   useEffect(() => {
     setMounted(true);
   }, []);
-  
+
   const { data: currentUser, isLoading: isLoadingUser } = useGetCurrentUserQuery(undefined, {
     skip: !mounted || !localStorage.getItem('nv_token'),
   });
@@ -56,14 +58,14 @@ export default function AdminLayout({ title, active = 'dashboard', children, req
   // Determine which pages the user can access
   const accessiblePages = useMemo(() => {
     if (!currentUser) return [];
-    
+
     const permissions = currentUser.permissions || [];
-    
+
     // If permissions array is empty or contains all pages, user has full access
     if (permissions.length === 0 || permissions.length === AVAILABLE_PAGES.length) {
       return AVAILABLE_PAGES;
     }
-    
+
     // Otherwise, only show pages in permissions array
     return AVAILABLE_PAGES.filter(page => permissions.includes(page.id));
   }, [currentUser]);
@@ -74,7 +76,7 @@ export default function AdminLayout({ title, active = 'dashboard', children, req
       const permissions = currentUser.permissions || [];
       const hasFullAccess = permissions.length === 0 || permissions.length === AVAILABLE_PAGES.length;
       const hasPermission = hasFullAccess || permissions.includes(requiredPermission);
-      
+
       if (!hasPermission) {
         // Redirect to first accessible page or dashboard
         const firstPage = accessiblePages.length > 0 ? accessiblePages[0].href : '/admin/dashboard';
