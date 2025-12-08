@@ -31,6 +31,7 @@ const AVAILABLE_PAGES = [
   { id: 'catalog', label: 'Catalog' },
   { id: 'orders', label: 'Orders' },
   { id: 'kitchen', label: 'Kitchen' },
+  { id: 'invoices', label: 'Invoices' },
   { id: 'waiters', label: 'Waiters' },
   { id: 'analytics', label: 'Analytics' },
   { id: 'team', label: 'Team' },
@@ -66,16 +67,16 @@ export default function TeamPage() {
 
   const filteredUsers = useMemo(() => {
     let filtered = adminUsers;
-    
+
     if (search.trim()) {
       const q = search.toLowerCase();
-      filtered = filtered.filter(u => 
-        u.name?.toLowerCase().includes(q) || 
+      filtered = filtered.filter(u =>
+        u.name?.toLowerCase().includes(q) ||
         u.email?.toLowerCase().includes(q) ||
         u.username?.toLowerCase().includes(q)
       );
     }
-    
+
     return filtered;
   }, [adminUsers, search]);
 
@@ -131,7 +132,7 @@ export default function TeamPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     try {
       const submitData = {
         name: formData.name,
@@ -154,7 +155,7 @@ export default function TeamPage() {
         }
         await createTeamMember(submitData).unwrap();
       }
-      
+
       handleCloseModal();
       refetch();
     } catch (error) {
@@ -181,7 +182,7 @@ export default function TeamPage() {
     const total = adminUsers.length;
     const active = adminUsers.filter(u => u.isActive).length;
     const withPermissions = adminUsers.filter(u => u.permissions && u.permissions.length > 0).length;
-    
+
     return { total, active, withPermissions };
   }, [adminUsers]);
 
@@ -250,7 +251,7 @@ export default function TeamPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredUsers.map((user) => {
                 const hasAllAccess = !user.permissions || user.permissions.length === 0 || user.permissions.length === AVAILABLE_PAGES.length;
-                
+
                 return (
                   <div
                     key={user._id}
@@ -292,7 +293,7 @@ export default function TeamPage() {
                           <span>@{user.username}</span>
                         </div>
                       )}
-                      
+
                       <div className="flex items-center gap-2 text-base">
                         {user.isActive ? (
                           <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-sm font-semibold" style={{ background: theme === 'light' ? '#ECFDF5' : '#052e21', color: colors.green700 || '#047857' }}>
@@ -344,12 +345,12 @@ export default function TeamPage() {
 
       {/* Create/Edit Modal */}
       {showModal && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4" 
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)' }}
           onClick={handleCloseModal}
         >
-          <div 
+          <div
             className="relative max-w-2xl w-full max-h-[90vh] overflow-y-auto rounded-2xl p-6"
             style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}` }}
             onClick={(e) => e.stopPropagation()}
@@ -434,7 +435,7 @@ export default function TeamPage() {
                 <div className="text-sm mb-3" style={{ color: colors.mutedText }}>
                   Select which pages this team member can access. Leave empty or select all for full access.
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 p-4 rounded-lg" style={{ background: colors.background, border: `1px solid ${colors.cardBorder}` }}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 p-4 rounded-lg" style={{ background: colors.background, border: `1px solid ${colors.cardBorder}` }}>
                   {AVAILABLE_PAGES.map((page) => {
                     const isSelected = formData.permissions.includes(page.id);
                     return (

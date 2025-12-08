@@ -282,178 +282,320 @@ export default function InvoicesPage() {
                         </div>
                     </div>
 
-                    {/* Invoice Table */}
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Invoice
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Status
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Amount
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Created By
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Date
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Actions
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {invoicesLoading ? (
-                                    <tr>
-                                        <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
-                                            Loading invoices...
-                                        </td>
-                                    </tr>
-                                ) : filteredInvoices.length === 0 ? (
-                                    <tr>
-                                        <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
-                                            No invoices found
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    filteredInvoices.map((invoice) => (
-                                        <tr key={invoice._id} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div>
-                                                    <div className="text-sm font-medium text-gray-900">{invoice.invoiceNumber}</div>
-                                                    <div className="text-sm text-gray-500">{invoice.title}</div>
-                                                    {invoice.vendor && (
-                                                        <div className="text-xs text-gray-400">Vendor: {invoice.vendor}</div>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
+                    {/* Invoice List - Cards on Mobile, Table on Desktop */}
+                    {invoicesLoading ? (
+                        <div className="p-8 text-center text-gray-500">
+                            Loading invoices...
+                        </div>
+                    ) : filteredInvoices.length === 0 ? (
+                        <div className="p-8 text-center text-gray-500">
+                            <FaFileInvoiceDollar className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                            No invoices found
+                        </div>
+                    ) : (
+                        <>
+                            {/* Mobile Card View */}
+                            <div className="md:hidden divide-y divide-gray-200">
+                                {filteredInvoices.map((invoice) => (
+                                    <div key={invoice._id} className="p-4 space-y-3">
+                                        {/* Header: Invoice Number + Status */}
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-base font-bold text-gray-900">{invoice.invoiceNumber}</div>
+                                                <div className="text-sm text-gray-600 truncate">{invoice.title}</div>
+                                                {invoice.vendor && (
+                                                    <div className="text-xs text-gray-400 mt-1">Vendor: {invoice.vendor}</div>
+                                                )}
+                                            </div>
+                                            <div className="flex-shrink-0">
                                                 {getStatusBadge(invoice.status)}
-                                                {invoice.status === 'approved' && invoice.expenseId && (
-                                                    <a
-                                                        href="/admin/accounting"
-                                                        className="flex items-center gap-1 mt-1 text-xs text-green-600 hover:text-green-800 hover:underline"
-                                                        title="View in Accounting"
-                                                    >
-                                                        <FaReceipt className="w-3 h-3" />
-                                                        <span>Expense Created</span>
-                                                        <FaExternalLinkAlt className="w-2 h-2" />
-                                                    </a>
-                                                )}
-                                                {invoice.status === 'rejected' && invoice.rejectionReason && (
-                                                    <div className="text-xs text-red-600 mt-1 max-w-xs truncate" title={invoice.rejectionReason}>
-                                                        Reason: {invoice.rejectionReason}
-                                                    </div>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                {formatCurrency(invoice.totalAmount)}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {invoice.createdBy?.name || 'Unknown'}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {new Date(invoice.createdAt).toLocaleDateString()}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                                <div className="flex flex-wrap gap-2">
-                                                    {/* View button */}
+                                            </div>
+                                        </div>
+
+                                        {/* Details Row */}
+                                        <div className="grid grid-cols-2 gap-3 text-sm">
+                                            <div className="p-2 rounded-lg bg-gray-50">
+                                                <div className="text-xs text-gray-500 mb-1">Amount</div>
+                                                <div className="font-bold text-gray-900">{formatCurrency(invoice.totalAmount)}</div>
+                                            </div>
+                                            <div className="p-2 rounded-lg bg-gray-50">
+                                                <div className="text-xs text-gray-500 mb-1">Date</div>
+                                                <div className="font-medium text-gray-900">{new Date(invoice.createdAt).toLocaleDateString()}</div>
+                                            </div>
+                                        </div>
+
+                                        {/* Created By */}
+                                        <div className="text-sm text-gray-500">
+                                            Created by: <span className="font-medium text-gray-700">{invoice.createdBy?.name || 'Unknown'}</span>
+                                        </div>
+
+                                        {/* Status Extra Info */}
+                                        {invoice.status === 'approved' && invoice.expenseId && (
+                                            <a
+                                                href="/admin/accounting"
+                                                className="flex items-center gap-2 text-sm text-green-600 hover:text-green-800 p-2 rounded-lg bg-green-50"
+                                            >
+                                                <FaReceipt className="w-4 h-4" />
+                                                <span>Expense Created - View in Accounting</span>
+                                                <FaExternalLinkAlt className="w-3 h-3 ml-auto" />
+                                            </a>
+                                        )}
+                                        {invoice.status === 'rejected' && invoice.rejectionReason && (
+                                            <div className="text-sm text-red-600 p-2 rounded-lg bg-red-50">
+                                                <span className="font-medium">Rejection Reason:</span> {invoice.rejectionReason}
+                                            </div>
+                                        )}
+
+                                        {/* Action Buttons - Full Width on Mobile */}
+                                        <div className="flex flex-wrap gap-2 pt-2">
+                                            {/* View button */}
+                                            <button
+                                                onClick={() => setViewingInvoice(invoice)}
+                                                className="flex-1 min-w-[80px] flex items-center justify-center gap-2 px-3 py-2.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 text-sm font-medium"
+                                            >
+                                                <FaEye className="w-4 h-4" />
+                                                <span>View</span>
+                                            </button>
+
+                                            {/* Edit for non-approved invoices */}
+                                            {invoice.status !== 'approved' && (
+                                                <button
+                                                    onClick={() => {
+                                                        setEditingInvoice(invoice);
+                                                        setShowInvoiceModal(true);
+                                                    }}
+                                                    disabled={processingId === invoice._id}
+                                                    className="flex-1 min-w-[80px] flex items-center justify-center gap-2 px-3 py-2.5 text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors duration-200 text-sm font-medium disabled:opacity-50"
+                                                >
+                                                    <FaEdit className="w-4 h-4" />
+                                                    <span>Edit</span>
+                                                </button>
+                                            )}
+
+                                            {/* Submit for approval (drafts only) */}
+                                            {invoice.status === 'draft' && (
+                                                <button
+                                                    onClick={() => handleSubmitInvoice(invoice._id)}
+                                                    disabled={processingId === invoice._id}
+                                                    className="flex-1 min-w-[80px] flex items-center justify-center gap-2 px-3 py-2.5 text-white bg-green-500 hover:bg-green-600 rounded-lg transition-colors duration-200 text-sm font-medium disabled:opacity-50"
+                                                >
+                                                    {processingId === invoice._id && processingAction === 'submit' ? (
+                                                        <FaSpinner className="w-4 h-4 animate-spin" />
+                                                    ) : (
+                                                        <FaPaperPlane className="w-4 h-4" />
+                                                    )}
+                                                    <span>Submit</span>
+                                                </button>
+                                            )}
+
+                                            {/* Approve/Reject for pending (admin only) */}
+                                            {invoice.status === 'pending' && isAdmin && (
+                                                <>
                                                     <button
-                                                        onClick={() => setViewingInvoice(invoice)}
-                                                        className="p-2 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-colors duration-200"
-                                                        title="View"
+                                                        onClick={() => handleApproveInvoice(invoice._id)}
+                                                        disabled={processingId === invoice._id}
+                                                        className="flex-1 min-w-[80px] flex items-center justify-center gap-2 px-3 py-2.5 text-white bg-green-500 hover:bg-green-600 rounded-lg transition-colors duration-200 text-sm font-medium disabled:opacity-50"
                                                     >
-                                                        <FaEye className="w-4 h-4" />
+                                                        {processingId === invoice._id && processingAction === 'approve' ? (
+                                                            <FaSpinner className="w-4 h-4 animate-spin" />
+                                                        ) : (
+                                                            <FaCheck className="w-4 h-4" />
+                                                        )}
+                                                        <span>Approve</span>
                                                     </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            setRejectingInvoiceId(invoice._id);
+                                                            setShowRejectModal(true);
+                                                        }}
+                                                        disabled={processingId === invoice._id}
+                                                        className="flex-1 min-w-[80px] flex items-center justify-center gap-2 px-3 py-2.5 text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors duration-200 text-sm font-medium disabled:opacity-50"
+                                                    >
+                                                        <FaTimes className="w-4 h-4" />
+                                                        <span>Reject</span>
+                                                    </button>
+                                                </>
+                                            )}
 
-                                                    {/* Edit for non-approved invoices */}
-                                                    {invoice.status !== 'approved' && (
-                                                        <button
-                                                            onClick={() => {
-                                                                setEditingInvoice(invoice);
-                                                                setShowInvoiceModal(true);
-                                                            }}
-                                                            disabled={processingId === invoice._id}
-                                                            className="p-2 text-orange-600 hover:text-orange-900 hover:bg-orange-50 rounded-lg transition-colors duration-200 disabled:opacity-50"
-                                                            title="Edit"
-                                                        >
-                                                            <FaEdit className="w-4 h-4" />
-                                                        </button>
+                                            {/* Delete for non-approved invoices */}
+                                            {invoice.status !== 'approved' && (
+                                                <button
+                                                    onClick={() => handleDeleteInvoice(invoice._id)}
+                                                    disabled={processingId === invoice._id}
+                                                    className="flex items-center justify-center gap-2 px-3 py-2.5 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors duration-200 text-sm font-medium disabled:opacity-50"
+                                                >
+                                                    {processingId === invoice._id && processingAction === 'delete' ? (
+                                                        <FaSpinner className="w-4 h-4 animate-spin" />
+                                                    ) : (
+                                                        <FaTrash className="w-4 h-4" />
                                                     )}
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
 
-                                                    {/* Submit for approval (drafts only) */}
-                                                    {invoice.status === 'draft' && (
-                                                        <button
-                                                            onClick={() => handleSubmitInvoice(invoice._id)}
-                                                            disabled={processingId === invoice._id}
-                                                            className="p-2 text-green-600 hover:text-green-900 hover:bg-green-50 rounded-lg transition-colors duration-200 disabled:opacity-50"
-                                                            title="Submit for approval"
+                            {/* Desktop Table View */}
+                            <div className="hidden md:block overflow-x-auto">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Invoice
+                                            </th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Status
+                                            </th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Amount
+                                            </th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Created By
+                                            </th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Date
+                                            </th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Actions
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                        {filteredInvoices.map((invoice) => (
+                                            <tr key={invoice._id} className="hover:bg-gray-50">
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div>
+                                                        <div className="text-sm font-medium text-gray-900">{invoice.invoiceNumber}</div>
+                                                        <div className="text-sm text-gray-500">{invoice.title}</div>
+                                                        {invoice.vendor && (
+                                                            <div className="text-xs text-gray-400">Vendor: {invoice.vendor}</div>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    {getStatusBadge(invoice.status)}
+                                                    {invoice.status === 'approved' && invoice.expenseId && (
+                                                        <a
+                                                            href="/admin/accounting"
+                                                            className="flex items-center gap-1 mt-1 text-xs text-green-600 hover:text-green-800 hover:underline"
+                                                            title="View in Accounting"
                                                         >
-                                                            {processingId === invoice._id && processingAction === 'submit' ? (
-                                                                <FaSpinner className="w-4 h-4 animate-spin" />
-                                                            ) : (
-                                                                <FaPaperPlane className="w-4 h-4" />
-                                                            )}
-                                                        </button>
+                                                            <FaReceipt className="w-3 h-3" />
+                                                            <span>Expense Created</span>
+                                                            <FaExternalLinkAlt className="w-2 h-2" />
+                                                        </a>
                                                     )}
+                                                    {invoice.status === 'rejected' && invoice.rejectionReason && (
+                                                        <div className="text-xs text-red-600 mt-1 max-w-xs truncate" title={invoice.rejectionReason}>
+                                                            Reason: {invoice.rejectionReason}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                    {formatCurrency(invoice.totalAmount)}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                    {invoice.createdBy?.name || 'Unknown'}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                    {new Date(invoice.createdAt).toLocaleDateString()}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {/* View button */}
+                                                        <button
+                                                            onClick={() => setViewingInvoice(invoice)}
+                                                            className="p-2 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-colors duration-200"
+                                                            title="View"
+                                                        >
+                                                            <FaEye className="w-4 h-4" />
+                                                        </button>
 
-                                                    {/* Approve/Reject for pending (admin only) */}
-                                                    {invoice.status === 'pending' && isAdmin && (
-                                                        <>
-                                                            <button
-                                                                onClick={() => handleApproveInvoice(invoice._id)}
-                                                                disabled={processingId === invoice._id}
-                                                                className="p-2 text-green-600 hover:text-green-900 hover:bg-green-50 rounded-lg transition-colors duration-200 disabled:opacity-50"
-                                                                title="Approve"
-                                                            >
-                                                                {processingId === invoice._id && processingAction === 'approve' ? (
-                                                                    <FaSpinner className="w-4 h-4 animate-spin" />
-                                                                ) : (
-                                                                    <FaCheck className="w-4 h-4" />
-                                                                )}
-                                                            </button>
+                                                        {/* Edit for non-approved invoices */}
+                                                        {invoice.status !== 'approved' && (
                                                             <button
                                                                 onClick={() => {
-                                                                    setRejectingInvoiceId(invoice._id);
-                                                                    setShowRejectModal(true);
+                                                                    setEditingInvoice(invoice);
+                                                                    setShowInvoiceModal(true);
                                                                 }}
                                                                 disabled={processingId === invoice._id}
-                                                                className="p-2 text-red-600 hover:text-red-900 hover:bg-red-50 rounded-lg transition-colors duration-200 disabled:opacity-50"
-                                                                title="Reject"
+                                                                className="p-2 text-orange-600 hover:text-orange-900 hover:bg-orange-50 rounded-lg transition-colors duration-200 disabled:opacity-50"
+                                                                title="Edit"
                                                             >
-                                                                <FaTimes className="w-4 h-4" />
+                                                                <FaEdit className="w-4 h-4" />
                                                             </button>
-                                                        </>
-                                                    )}
+                                                        )}
 
-                                                    {/* Delete for non-approved invoices */}
-                                                    {invoice.status !== 'approved' && (
-                                                        <button
-                                                            onClick={() => handleDeleteInvoice(invoice._id)}
-                                                            disabled={processingId === invoice._id}
-                                                            className="p-2 text-red-600 hover:text-red-900 hover:bg-red-50 rounded-lg transition-colors duration-200 disabled:opacity-50"
-                                                            title="Delete"
-                                                        >
-                                                            {processingId === invoice._id && processingAction === 'delete' ? (
-                                                                <FaSpinner className="w-4 h-4 animate-spin" />
-                                                            ) : (
-                                                                <FaTrash className="w-4 h-4" />
-                                                            )}
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+                                                        {/* Submit for approval (drafts only) */}
+                                                        {invoice.status === 'draft' && (
+                                                            <button
+                                                                onClick={() => handleSubmitInvoice(invoice._id)}
+                                                                disabled={processingId === invoice._id}
+                                                                className="p-2 text-green-600 hover:text-green-900 hover:bg-green-50 rounded-lg transition-colors duration-200 disabled:opacity-50"
+                                                                title="Submit for approval"
+                                                            >
+                                                                {processingId === invoice._id && processingAction === 'submit' ? (
+                                                                    <FaSpinner className="w-4 h-4 animate-spin" />
+                                                                ) : (
+                                                                    <FaPaperPlane className="w-4 h-4" />
+                                                                )}
+                                                            </button>
+                                                        )}
+
+                                                        {/* Approve/Reject for pending (admin only) */}
+                                                        {invoice.status === 'pending' && isAdmin && (
+                                                            <>
+                                                                <button
+                                                                    onClick={() => handleApproveInvoice(invoice._id)}
+                                                                    disabled={processingId === invoice._id}
+                                                                    className="p-2 text-green-600 hover:text-green-900 hover:bg-green-50 rounded-lg transition-colors duration-200 disabled:opacity-50"
+                                                                    title="Approve"
+                                                                >
+                                                                    {processingId === invoice._id && processingAction === 'approve' ? (
+                                                                        <FaSpinner className="w-4 h-4 animate-spin" />
+                                                                    ) : (
+                                                                        <FaCheck className="w-4 h-4" />
+                                                                    )}
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setRejectingInvoiceId(invoice._id);
+                                                                        setShowRejectModal(true);
+                                                                    }}
+                                                                    disabled={processingId === invoice._id}
+                                                                    className="p-2 text-red-600 hover:text-red-900 hover:bg-red-50 rounded-lg transition-colors duration-200 disabled:opacity-50"
+                                                                    title="Reject"
+                                                                >
+                                                                    <FaTimes className="w-4 h-4" />
+                                                                </button>
+                                                            </>
+                                                        )}
+
+                                                        {/* Delete for non-approved invoices */}
+                                                        {invoice.status !== 'approved' && (
+                                                            <button
+                                                                onClick={() => handleDeleteInvoice(invoice._id)}
+                                                                disabled={processingId === invoice._id}
+                                                                className="p-2 text-red-600 hover:text-red-900 hover:bg-red-50 rounded-lg transition-colors duration-200 disabled:opacity-50"
+                                                                title="Delete"
+                                                            >
+                                                                {processingId === invoice._id && processingAction === 'delete' ? (
+                                                                    <FaSpinner className="w-4 h-4 animate-spin" />
+                                                                ) : (
+                                                                    <FaTrash className="w-4 h-4" />
+                                                                )}
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </>
+                    )}
                 </div>
 
                 {/* Invoice Modal */}
@@ -646,7 +788,7 @@ function InvoiceModal({ invoice, onSave, onClose }) {
                             {formData.items.map((item, index) => (
                                 <div key={index} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
                                     <div className="grid grid-cols-12 gap-2">
-                                        <div className="col-span-4">
+                                        <div className="col-span-12 sm:col-span-4">
                                             <input
                                                 type="text"
                                                 placeholder="Item name"
@@ -655,7 +797,7 @@ function InvoiceModal({ invoice, onSave, onClose }) {
                                                 className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-orange-500"
                                             />
                                         </div>
-                                        <div className="col-span-2">
+                                        <div className="col-span-3 sm:col-span-2">
                                             <input
                                                 type="number"
                                                 placeholder="Qty"
@@ -666,7 +808,7 @@ function InvoiceModal({ invoice, onSave, onClose }) {
                                                 className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-orange-500"
                                             />
                                         </div>
-                                        <div className="col-span-2">
+                                        <div className="col-span-4 sm:col-span-2">
                                             <select
                                                 value={item.unit}
                                                 onChange={(e) => updateItem(index, 'unit', e.target.value)}
@@ -677,7 +819,7 @@ function InvoiceModal({ invoice, onSave, onClose }) {
                                                 ))}
                                             </select>
                                         </div>
-                                        <div className="col-span-3">
+                                        <div className="col-span-4 sm:col-span-3">
                                             <input
                                                 type="number"
                                                 placeholder="Price"
@@ -688,7 +830,7 @@ function InvoiceModal({ invoice, onSave, onClose }) {
                                                 className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-orange-500"
                                             />
                                         </div>
-                                        <div className="col-span-1 flex items-center justify-end">
+                                        <div className="col-span-1 sm:col-span-1 flex items-center justify-end">
                                             {formData.items.length > 1 && (
                                                 <button
                                                     type="button"

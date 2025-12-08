@@ -20,6 +20,7 @@ import {
   IoRestaurant,
   IoPersonAddOutline,
   IoReceiptOutline,
+  IoCloseOutline,
 } from 'react-icons/io5';
 
 const AVAILABLE_PAGES = [
@@ -40,6 +41,7 @@ export default function AdminLayout({ title, active = 'dashboard', children, req
   const { colors, theme } = useTheme();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -153,11 +155,117 @@ export default function AdminLayout({ title, active = 'dashboard', children, req
         </div>
       </aside>
 
+      {/* Mobile Menu - Full Page App Grid */}
+      {mobileSidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 md:hidden overflow-y-auto"
+          style={{ background: colors.background }}
+        >
+          {/* Header */}
+          <div className="sticky top-0 z-10 px-4 py-4" style={{ background: colors.background, borderBottom: `1px solid ${colors.cardBorder}` }}>
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 rounded-2xl flex items-center justify-center" style={{ background: colors.amber500, color: '#fff' }}>
+                <IoRestaurantOutline className="h-6 w-6" />
+              </div>
+              <div className="flex-1">
+                <div className="font-extrabold text-xl tracking-tight" style={{ color: colors.text }}>Nectar Admin</div>
+                <div className="text-sm" style={{ color: colors.mutedText }}>Menu</div>
+              </div>
+              <button
+                className="h-12 w-12 rounded-2xl flex items-center justify-center"
+                style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, color: colors.text }}
+                onClick={() => setMobileSidebarOpen(false)}
+              >
+                <IoCloseOutline className="h-6 w-6" />
+              </button>
+            </div>
+          </div>
+
+          {/* App Grid */}
+          <div className="p-4">
+            {!mounted || isLoadingUser ? (
+              <div className="text-center py-10" style={{ color: colors.mutedText }}>Loading...</div>
+            ) : (
+              <div className="grid grid-cols-3 gap-4">
+                {accessiblePages.map((page) => {
+                  const Icon = page.icon;
+                  const isActive = active === page.id;
+                  return (
+                    <Link
+                      key={page.id}
+                      href={page.href}
+                      onClick={() => setMobileSidebarOpen(false)}
+                      className="flex flex-col items-center justify-center rounded-2xl p-4 aspect-square transition-all active:scale-95"
+                      style={{
+                        background: isActive
+                          ? (theme === 'light' ? '#FFF7ED' : '#3A2A1A')
+                          : colors.cardBg,
+                        border: `1px solid ${isActive ? colors.amber500 : colors.cardBorder}`,
+                        boxShadow: isActive ? `0 4px 12px ${theme === 'light' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(245, 158, 11, 0.1)'}` : 'none',
+                      }}
+                    >
+                      <div
+                        className="h-12 w-12 rounded-xl flex items-center justify-center mb-2"
+                        style={{
+                          background: isActive ? colors.amber500 : (theme === 'light' ? '#F3F4F6' : '#374151'),
+                          color: isActive ? '#fff' : colors.text,
+                        }}
+                      >
+                        <Icon className="h-6 w-6" />
+                      </div>
+                      <span
+                        className="text-xs font-semibold text-center leading-tight"
+                        style={{ color: colors.text }}
+                      >
+                        {page.label}
+                      </span>
+                    </Link>
+                  );
+                })}
+
+                {/* Logout Card */}
+                <button
+                  onClick={handleLogout}
+                  className="flex flex-col items-center justify-center rounded-2xl p-4 aspect-square transition-all active:scale-95"
+                  style={{
+                    background: theme === 'light' ? '#FEE2E2' : '#3B1C1C',
+                    border: `1px solid ${theme === 'light' ? '#FECACA' : '#5C2929'}`,
+                  }}
+                >
+                  <div
+                    className="h-12 w-12 rounded-xl flex items-center justify-center mb-2"
+                    style={{
+                      background: theme === 'light' ? '#EF4444' : '#DC2626',
+                      color: '#fff',
+                    }}
+                  >
+                    <IoLogOutOutline className="h-6 w-6" />
+                  </div>
+                  <span
+                    className="text-xs font-semibold text-center leading-tight"
+                    style={{ color: theme === 'light' ? '#DC2626' : '#F87171' }}
+                  >
+                    Logout
+                  </span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Main */}
       <div className="flex-1 min-w-0">
         <div className="px-4 py-4 sticky top-0 z-20" style={{ background: colors.background, borderBottom: `1px solid ${colors.cardBorder}` }}>
           <div className="max-w-7xl mx-auto flex items-center gap-3">
-            <h1 className="text-3xl font-extrabold tracking-tight" style={{ color: colors.text }}>{title}</h1>
+            <button
+              className="md:hidden h-10 w-10 rounded-xl flex items-center justify-center mr-2"
+              style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, color: colors.text }}
+              onClick={() => setMobileSidebarOpen(true)}
+            >
+              <IoMenuOutline className="h-5 w-5" />
+            </button>
+            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight truncate" style={{ color: colors.text }}>{title}</h1>
             <div className="flex-1" />
             <div className="hidden md:block relative">
               <IoSearchOutline className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5" style={{ color: colors.mutedText }} />

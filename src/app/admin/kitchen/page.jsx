@@ -46,7 +46,7 @@ export default function KitchenPage() {
   // Request notification permission and initialize audio context on mount
   useEffect(() => {
     requestNotificationPermission();
-    
+
     // Initialize audio context on user interaction (required by browsers)
     const initAudio = () => {
       if (!window.audioContext) {
@@ -62,13 +62,13 @@ export default function KitchenPage() {
         }
       }
     };
-    
+
     // Try to initialize on any user interaction
     const events = ['click', 'touchstart', 'keydown'];
     events.forEach(event => {
       document.addEventListener(event, initAudio, { once: true });
     });
-    
+
     return () => {
       events.forEach(event => {
         document.removeEventListener(event, initAudio);
@@ -87,7 +87,7 @@ export default function KitchenPage() {
     };
 
     window.addEventListener('storage', handleStorageChange);
-    
+
     const handleCustomEvent = () => {
       console.log('[Kitchen Page] Order created event received, refetching...');
       refetch();
@@ -105,7 +105,7 @@ export default function KitchenPage() {
     if (!Array.isArray(ordersData)) {
       return [];
     }
-    
+
     return ordersData.map(order => {
       // Handle orderItems - they might be populated or just IDs
       const items = (order.orderItems || []).map(item => {
@@ -171,7 +171,7 @@ export default function KitchenPage() {
   // Detect new orders and notify
   useEffect(() => {
     if (isLoading) return;
-    
+
     // Initialize on first load (don't notify)
     if (previousOrderIds.size === 0 && kitchenOrders.length > 0) {
       console.log('[Kitchen] Initializing order tracking with', kitchenOrders.length, 'orders');
@@ -183,38 +183,38 @@ export default function KitchenPage() {
     if (kitchenOrders.length === 0) return;
 
     const currentOrderIds = new Set(kitchenOrders.map(order => order.id));
-    
+
     // Check for new orders
     const newOrders = kitchenOrders.filter(order => !previousOrderIds.has(order.id));
-    
+
     console.log('[Kitchen] Checking for new orders:', {
       totalOrders: kitchenOrders.length,
       previousCount: previousOrderIds.size,
       newOrdersCount: newOrders.length,
       newOrderIds: newOrders.map(o => o.id)
     });
-    
+
     if (newOrders.length > 0) {
       // New orders detected - notify
       const orderCount = newOrders.length;
-      const message = orderCount === 1 
+      const message = orderCount === 1
         ? `New order #${String(newOrders[0].id).slice(-8).toUpperCase()} from ${newOrders[0].customer}`
         : `${orderCount} new orders received`;
-      
+
       console.log('[Kitchen] New orders detected! Playing sound and showing notification:', message);
-      
+
       // Play sound immediately
       playNotificationSound().catch(err => {
         console.error('[Kitchen] Error playing sound:', err);
       });
-      
+
       // Show notification
       notifyWithSound('🍽️ New Order Received!', {
         body: message,
         tag: 'kitchen-new-order',
       });
     }
-    
+
     // Update previous order IDs
     setPreviousOrderIds(currentOrderIds);
   }, [kitchenOrders, isLoading]);
@@ -272,24 +272,24 @@ export default function KitchenPage() {
 
   const filteredOrders = useMemo(() => {
     let filtered = kitchenOrders;
-    
+
     if (search.trim()) {
       const q = search.toLowerCase();
-      filtered = filtered.filter(o => 
-        o.id.toLowerCase().includes(q) || 
+      filtered = filtered.filter(o =>
+        o.id.toLowerCase().includes(q) ||
         o.customer.toLowerCase().includes(q) ||
         o.table.toLowerCase().includes(q) ||
         o.items.some(item => item.name.toLowerCase().includes(q))
       );
     }
-    
+
     return filtered;
   }, [kitchenOrders, search]);
 
   const stats = useMemo(() => {
     const pending = kitchenOrders.filter(o => o.status === 'pending').length;
     const preparing = kitchenOrders.filter(o => o.status === 'preparing').length;
-    
+
     return { pending, preparing, total: kitchenOrders.length };
   }, [kitchenOrders]);
 
@@ -429,31 +429,32 @@ export default function KitchenPage() {
                     <div className="p-4 space-y-3">
                       {order.items.map((item, idx) => (
                         <div key={idx} className="rounded-lg overflow-hidden" style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}` }}>
-                          <div className="flex gap-3 p-3">
-                            {/* Item Image */}
-                            <div 
-                              className="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden cursor-pointer transition-transform hover:scale-105" 
+                          {/* Mobile: Stack vertically | Tablet+: Horizontal layout */}
+                          <div className="flex flex-col sm:flex-row gap-3 p-3">
+                            {/* Item Image - Full width on mobile, fixed size on desktop */}
+                            <div
+                              className="flex-shrink-0 w-full sm:w-24 h-40 sm:h-24 rounded-lg overflow-hidden cursor-pointer transition-transform hover:scale-[1.02] sm:hover:scale-105"
                               style={{ background: theme === 'light' ? '#F3F4F6' : '#1F2937' }}
                               onClick={() => item.imageUrl && setSelectedImage(item.imageUrl)}
                             >
                               {item.imageUrl ? (
-                                <img 
-                                  src={item.imageUrl} 
+                                <img
+                                  src={item.imageUrl}
                                   alt={item.name}
                                   className="w-full h-full object-cover"
                                 />
                               ) : (
-                                <div className="w-full h-full flex items-center justify-center text-4xl">
+                                <div className="w-full h-full flex items-center justify-center text-5xl sm:text-4xl">
                                   {item.emoji || '🍽️'}
                                 </div>
                               )}
                             </div>
-                            
+
                             {/* Item Details */}
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-start justify-between mb-1">
-                                <div className="text-base font-bold" style={{ color: colors.text }}>{item.name}</div>
-                                <span className="text-sm px-2 py-1 rounded font-semibold" style={{ background: theme === 'light' ? '#F3F4F6' : '#1F2937', color: colors.text }}>x{item.quantity}</span>
+                              <div className="flex items-start justify-between gap-2 mb-2">
+                                <div className="text-lg sm:text-base font-bold flex-1" style={{ color: colors.text }}>{item.name}</div>
+                                <span className="text-sm px-3 py-1.5 sm:px-2 sm:py-1 rounded-lg sm:rounded font-semibold whitespace-nowrap" style={{ background: theme === 'light' ? '#F3F4F6' : '#1F2937', color: colors.text }}>x{item.quantity}</span>
                               </div>
                               {item.description && (
                                 <div className="text-sm mb-2" style={{ color: colors.mutedText }}>
@@ -462,17 +463,17 @@ export default function KitchenPage() {
                                 </div>
                               )}
                               {item.notes && (
-                                <div className="text-sm mb-2" style={{ color: colors.amber600 }}>
-                                  <div className="font-semibold mb-1">Special Notes:</div>
+                                <div className="text-sm mb-2 p-2 rounded-lg" style={{ background: theme === 'light' ? '#FEF3C7' : '#3A2F1A', color: colors.amber600 }}>
+                                  <div className="font-semibold mb-1">⚠️ Special Notes:</div>
                                   <div>{item.notes}</div>
                                 </div>
                               )}
-                              <div className="text-base font-semibold" style={{ color: colors.text }}>₦{(item.price * item.quantity).toLocaleString()}</div>
+                              <div className="text-lg sm:text-base font-bold" style={{ color: colors.amber600 }}>₦{(item.price * item.quantity).toLocaleString()}</div>
                             </div>
                           </div>
                         </div>
                       ))}
-                      
+
                       {/* Order Total */}
                       <div className="flex items-center justify-between pt-3 mt-3" style={{ borderTop: `1px solid ${colors.cardBorder}` }}>
                         <div className="text-base font-bold" style={{ color: colors.text }}>Total</div>
@@ -488,92 +489,89 @@ export default function KitchenPage() {
                       )}
 
                       {/* Status Update Buttons */}
-                      <div className="flex items-center gap-2 pt-3">
+                      <div className="flex flex-wrap items-center gap-2 pt-3">
                         {order.status === 'pending' && (
                           <>
-                            <button 
+                            <button
                               onClick={() => handleStatusUpdate(order.id, 'preparing')}
                               disabled={updatingOrderId === order.id || deletingOrderId === order.id}
-                              className={`flex-1 px-4 py-3 rounded-lg text-base font-semibold transition-all ${
-                                updatingOrderId === order.id || deletingOrderId === order.id
-                                  ? 'opacity-70 cursor-not-allowed' 
-                                  : 'hover:scale-105'
-                              }`}
+                              className={`flex-1 min-w-[100px] px-3 py-2 sm:px-4 sm:py-3 rounded-lg text-sm sm:text-base font-semibold transition-all ${updatingOrderId === order.id || deletingOrderId === order.id
+                                  ? 'opacity-70 cursor-not-allowed'
+                                  : 'hover:scale-105 active:scale-95'
+                                }`}
                               style={{ background: colors.blue500 || '#3B82F6', color: '#fff' }}
                             >
                               {updatingOrderId === order.id ? (
-                                <span className="inline-flex items-center gap-2">
-                                  <IoReloadOutline className="animate-spin h-5 w-5" />
-                                  Updating...
+                                <span className="inline-flex items-center justify-center gap-1.5">
+                                  <IoReloadOutline className="animate-spin h-4 w-4 sm:h-5 sm:w-5" />
+                                  <span className="hidden sm:inline">Updating...</span>
                                 </span>
                               ) : (
-                                'Start Preparing'
+                                <span className="inline-flex items-center justify-center gap-1.5">
+                                  <IoReceiptOutline className="h-4 w-4 sm:hidden" />
+                                  <span>Start</span>
+                                  <span className="hidden sm:inline"> Preparing</span>
+                                </span>
                               )}
                             </button>
-                            <button 
+                            <button
                               onClick={() => handleCancelOrder(order.id)}
                               disabled={updatingOrderId === order.id || deletingOrderId === order.id}
-                              className={`px-4 py-3 rounded-lg text-base font-semibold transition-all ${
-                                updatingOrderId === order.id || deletingOrderId === order.id
-                                  ? 'opacity-70 cursor-not-allowed' 
-                                  : 'hover:scale-105'
-                              }`}
+                              className={`px-3 py-2 sm:px-4 sm:py-3 rounded-lg text-sm sm:text-base font-semibold transition-all ${updatingOrderId === order.id || deletingOrderId === order.id
+                                  ? 'opacity-70 cursor-not-allowed'
+                                  : 'hover:scale-105 active:scale-95'
+                                }`}
                               style={{ background: colors.amber500 || '#F59E0B', color: '#fff' }}
                             >
                               {updatingOrderId === order.id ? (
-                                <span className="inline-flex items-center gap-2">
-                                  <IoReloadOutline className="animate-spin h-5 w-5" />
-                                  Updating...
-                                </span>
+                                <IoReloadOutline className="animate-spin h-4 w-4 sm:h-5 sm:w-5" />
                               ) : (
-                                <span className="inline-flex items-center gap-2">
-                                  <IoCloseCircleOutline className="h-5 w-5" />
-                                  Cancel
+                                <span className="inline-flex items-center justify-center gap-1.5">
+                                  <IoCloseCircleOutline className="h-4 w-4 sm:h-5 sm:w-5" />
+                                  <span className="hidden sm:inline">Cancel</span>
                                 </span>
                               )}
                             </button>
-                            <button 
+                            <button
                               onClick={() => handleDeleteOrder(order.id)}
                               disabled={updatingOrderId === order.id || deletingOrderId === order.id}
-                              className={`px-4 py-3 rounded-lg text-base font-semibold transition-all ${
-                                updatingOrderId === order.id || deletingOrderId === order.id
-                                  ? 'opacity-70 cursor-not-allowed' 
-                                  : 'hover:scale-105'
-                              }`}
+                              className={`px-3 py-2 sm:px-4 sm:py-3 rounded-lg text-sm sm:text-base font-semibold transition-all ${updatingOrderId === order.id || deletingOrderId === order.id
+                                  ? 'opacity-70 cursor-not-allowed'
+                                  : 'hover:scale-105 active:scale-95'
+                                }`}
                               style={{ background: colors.red600 || '#DC2626', color: '#fff' }}
                             >
                               {deletingOrderId === order.id ? (
-                                <span className="inline-flex items-center gap-2">
-                                  <IoReloadOutline className="animate-spin h-5 w-5" />
-                                  Deleting...
-                                </span>
+                                <IoReloadOutline className="animate-spin h-4 w-4 sm:h-5 sm:w-5" />
                               ) : (
-                                <span className="inline-flex items-center gap-2">
-                                  <IoTrashOutline className="h-5 w-5" />
-                                  Delete
+                                <span className="inline-flex items-center justify-center gap-1.5">
+                                  <IoTrashOutline className="h-4 w-4 sm:h-5 sm:w-5" />
+                                  <span className="hidden sm:inline">Delete</span>
                                 </span>
                               )}
                             </button>
                           </>
                         )}
                         {order.status === 'preparing' && (
-                          <button 
+                          <button
                             onClick={() => handleStatusUpdate(order.id, 'ready')}
                             disabled={updatingOrderId === order.id}
-                            className={`flex-1 px-4 py-3 rounded-lg text-base font-semibold transition-all ${
-                              updatingOrderId === order.id 
-                                ? 'opacity-70 cursor-not-allowed' 
-                                : 'hover:scale-105'
-                            }`}
+                            className={`flex-1 px-3 py-2.5 sm:px-4 sm:py-3 rounded-lg text-sm sm:text-base font-semibold transition-all ${updatingOrderId === order.id
+                                ? 'opacity-70 cursor-not-allowed'
+                                : 'hover:scale-105 active:scale-95'
+                              }`}
                             style={{ background: colors.green500, color: '#fff' }}
                           >
                             {updatingOrderId === order.id ? (
-                              <span className="inline-flex items-center gap-2">
-                                <IoReloadOutline className="animate-spin h-5 w-5" />
-                                Updating...
+                              <span className="inline-flex items-center justify-center gap-1.5">
+                                <IoReloadOutline className="animate-spin h-4 w-4 sm:h-5 sm:w-5" />
+                                <span className="hidden sm:inline">Updating...</span>
                               </span>
                             ) : (
-                              'Mark as Ready'
+                              <span className="inline-flex items-center justify-center gap-1.5">
+                                <IoCheckmarkCircleOutline className="h-4 w-4 sm:h-5 sm:w-5" />
+                                <span>Ready</span>
+                              </span>
                             )}
                           </button>
                         )}
@@ -589,12 +587,12 @@ export default function KitchenPage() {
 
       {/* Image Modal */}
       {selectedImage && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4" 
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)' }}
           onClick={() => setSelectedImage(null)}
         >
-          <div 
+          <div
             className="relative max-w-4xl max-h-[90vh] w-full"
             onClick={(e) => e.stopPropagation()}
           >
@@ -609,7 +607,7 @@ export default function KitchenPage() {
             >
               <IoClose className="w-6 h-6" />
             </button>
-            
+
             <img
               src={selectedImage}
               alt="Full size"
