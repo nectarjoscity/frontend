@@ -16,7 +16,7 @@ export const nectarApi = createApi({
       return headers;
     }
   }),
-  tagTypes: ['Categories', 'MenuItems', 'Auth', 'Users', 'Orders', 'Team', 'Inventory', 'MenuItemIngredients', 'InventoryTransactions', 'InventoryAnalytics', 'Expenses', 'ExpenseAnalytics', 'FinancialReports', 'Invoices'],
+  tagTypes: ['Categories', 'MenuItems', 'Auth', 'Users', 'Orders', 'Team', 'Inventory', 'MenuItemIngredients', 'InventoryTransactions', 'InventoryAnalytics', 'Expenses', 'ExpenseAnalytics', 'FinancialReports', 'Invoices', 'Recommendations'],
   endpoints: (builder) => ({
     // Auth
     login: builder.mutation({
@@ -550,6 +550,29 @@ export const nectarApi = createApi({
       }),
       invalidatesTags: [{ type: 'Invoices', id: 'LIST' }, { type: 'Invoices', id: 'STATS' }]
     }),
+
+    // AI Meal Recommendations
+    getRecommendations: builder.mutation({
+      query: ({ selectedItems, excludeItemIds, targetCategory, preferences } = {}) => ({
+        url: 'api/recommendations',
+        method: 'POST',
+        body: {
+          selectedItems: Array.isArray(selectedItems) ? selectedItems : [],
+          excludeItemIds: excludeItemIds || [],
+          targetCategory: targetCategory || null,
+          preferences: preferences || {}
+        }
+      }),
+      transformResponse: (response) => response,
+    }),
+    checkMealCompleteness: builder.mutation({
+      query: (selectedItems) => ({
+        url: 'api/recommendations/check-meal',
+        method: 'POST',
+        body: { selectedItems }
+      }),
+      transformResponse: (response) => response,
+    }),
   }),
 });
 
@@ -610,4 +633,7 @@ export const {
   useApproveInvoiceMutation,
   useRejectInvoiceMutation,
   useDeleteInvoiceMutation,
+  // Recommendation hooks
+  useGetRecommendationsMutation,
+  useCheckMealCompletenessMutation,
 } = nectarApi;

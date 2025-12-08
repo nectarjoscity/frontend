@@ -15,6 +15,7 @@ import ManualShop from './components/ManualShop';
 import CartSidebar from './components/CartSidebar';
 import InputArea from './components/InputArea';
 import GeofenceGuard from './components/GeofenceGuard';
+import RecommendationList from './components/RecommendationList';
 import { isPreOrderLandingPage } from '../utils/landingPage';
 
 // Wrapper component to handle Suspense boundary for useSearchParams
@@ -44,6 +45,7 @@ function RestaurantChat() {
   const [isMobile, setIsMobile] = useState(false);
   const [transferExpiry, setTransferExpiry] = useState(null);
   const [mode, setMode] = useState('shop'); // 'ai' | 'shop' - default to shop mode
+  const [showRecommendations, setShowRecommendations] = useState(false);
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -70,10 +72,10 @@ function RestaurantChat() {
     }
     return '';
   });
-  
+
   // User state for logged-in users
   const [currentUser, setCurrentUser] = useState(null);
-  
+
   // Load user from localStorage on mount and listen for auth changes
   useEffect(() => {
     const loadUser = () => {
@@ -90,9 +92,9 @@ function RestaurantChat() {
         }
       }
     };
-    
+
     loadUser();
-    
+
     // Listen for auth changes
     const handleAuthChange = () => loadUser();
     window.addEventListener('nv_auth_change', handleAuthChange);
@@ -508,7 +510,7 @@ function RestaurantChat() {
           localStorage.setItem('nv_user', JSON.stringify(resp.user));
         }
         window.dispatchEvent(new Event('nv_auth_change'));
-        
+
         const botMessage = {
           id: Date.now(),
           text: resp.message || `Welcome! You're now logged in.`,
@@ -704,7 +706,7 @@ function RestaurantChat() {
 
 
   // Cart functions
-  const addToCart = (item) => {
+  const addToCart = (item, skipRecommendation = false) => {
     console.log('[addToCart] Adding item to cart:', item);
     const existingItem = cart.find(cartItem => cartItem.name === item.name);
     if (existingItem) {
@@ -717,6 +719,10 @@ function RestaurantChat() {
       const cartItem = { ...item, quantity: 1, _id: item._id };
       console.log('[addToCart] New cart item:', cartItem);
       setCart([...cart, cartItem]);
+    }
+    // Show recommendations after adding item (unless skipped or from recommendation modal)
+    if (!skipRecommendation && mode === 'shop') {
+      setShowRecommendations(true);
     }
   };
 
@@ -2371,6 +2377,17 @@ function RestaurantChat() {
 
 
       `}</style>
+
+        {/* AI Meal Recommendation Modal */}
+        {showRecommendations && cart.length > 0 && (
+          <RecommendationList
+            selectedItems={cart}
+            onAddToCart={(item) => addToCart(item, true)}
+            onClose={() => setShowRecommendations(false)}
+            colors={colors}
+            theme={theme}
+          />
+        )}
       </div>
     </GeofenceGuard>
   );
