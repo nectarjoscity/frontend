@@ -54,7 +54,28 @@ export default function CartSidebar({
             setPaymentError('Invalid amount');
             return;
           }
-          const result = await createVirtualAccount({ amount: totalPrice }).unwrap();
+
+          // Parse customer info for transaction record
+          let customerEmail = '';
+          let customerPhone = '';
+          if (manualContact.includes('|||')) {
+            const [email, phone] = manualContact.split('|||');
+            customerEmail = email?.trim() || '';
+            customerPhone = phone?.trim() || '';
+          } else if (manualContact.includes('@')) {
+            customerEmail = manualContact;
+          } else {
+            customerPhone = manualContact;
+          }
+
+          const result = await createVirtualAccount({
+            amount: totalPrice,
+            deliveryFee: (manualDiningPreference === 'delivery' || manualDiningPreference === 'takeout') ? DELIVERY_FEE : 0,
+            customerEmail,
+            customerPhone,
+            customerName: customerEmail || customerPhone || 'Guest',
+            description: isPreOrder ? 'Pre-order payment' : 'Order payment',
+          }).unwrap();
           setPaymentDetails(result);
         } catch (error) {
           console.error('Error creating virtual account:', error);
@@ -63,7 +84,7 @@ export default function CartSidebar({
       };
       createAccount();
     }
-  }, [manualStep, paymentDetails, paymentError, isCreatingAccount, manualDiningPreference, getTotalPrice, createVirtualAccount]);
+  }, [manualStep, paymentDetails, paymentError, isCreatingAccount, manualDiningPreference, manualContact, isPreOrder, getTotalPrice, createVirtualAccount]);
 
   // Reset payment details when cart is closed or checkout is reset
   useEffect(() => {
