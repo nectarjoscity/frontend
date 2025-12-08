@@ -1,6 +1,6 @@
 [build]
   command = "npm run build"
-  publish = ".next"
+  # Static export outputs to 'out' directory
+  publish = "out"
 
-[[plugins]]
-  package = "@netlify/plugin-nextjs"
+# No plugins needed for static export - Netlify serves it as a static site
