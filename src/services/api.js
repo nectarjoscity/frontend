@@ -234,6 +234,19 @@ export const nectarApi = createApi({
       transformResponse: (response) => response?.data,
       invalidatesTags: [{ type: 'Orders', id: 'LIST' }]
     }),
+    getOrderCustomers: builder.query({
+      query: () => ({ url: 'api/orders/customers' }),
+      transformResponse: (response) => response?.data || [],
+      providesTags: [{ type: 'Orders', id: 'CUSTOMERS' }],
+    }),
+    sendEmailToCustomers: builder.mutation({
+      query: (body) => ({
+        url: 'api/orders/customers/send-email',
+        method: 'POST',
+        body,
+      }),
+      transformResponse: (response) => response?.data,
+    }),
     // Current User (Me)
     getCurrentUser: builder.query({
       query: () => ({ url: 'api/users/me' }),
@@ -594,6 +607,8 @@ export const {
   useCreateOrderMutation,
   useUpdateOrderMutation,
   useDeleteOrderMutation,
+  useGetOrderCustomersQuery,
+  useSendEmailToCustomersMutation,
   useGetCurrentUserQuery,
   useGetTeamMembersQuery,
   useGetTeamMemberQuery,

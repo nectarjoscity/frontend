@@ -1,27 +1,25 @@
-// Landing page configuration - hardcoded to preorder
+// Landing page configuration
 
 /**
- * Get the landing page (always preorder)
- * @returns {string} 'preorder'
+ * Get the landing page setting
+ * @returns {string} 'main' - The main ordering page
  */
 export function getLandingPage() {
-  return 'preorder';
+  return 'main';
 }
 
 /**
- * Set the landing page (no-op since it's hardcoded)
+ * Set the landing page
  * @param {string} page - The landing page setting
  */
 export function setLandingPage(page) {
-  // Currently hardcoded to preorder, this is a no-op
-  // Could be extended to store in localStorage if needed
   console.log('Landing page setting:', page);
 }
 
 /**
- * Check if preorder should be the landing page (always true)
- * @returns {boolean}
+ * Check if preorder should be the landing page
+ * @returns {boolean} false - Preorder period is over
  */
 export function isPreOrderLandingPage() {
-  return true;
+  return false;
 }

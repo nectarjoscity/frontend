@@ -90,6 +90,8 @@ export default function CatalogManagementPage() {
     const form = new FormData(e.currentTarget);
     const payload = {
       name: form.get('name')?.toString().trim(),
+      displayName: form.get('displayName')?.toString().trim() || null,
+      tagline: form.get('tagline')?.toString().trim() || null,
       description: form.get('description')?.toString().trim(),
       emoji: form.get('emoji')?.toString().trim() || '🥗',
       isActive: true,
@@ -128,6 +130,11 @@ export default function CatalogManagementPage() {
     formData.append('category', selectedCategoryId);
     formData.append('isActive', 'true');
     formData.append('isAvailable', form.get('isAvailable') === 'on' || form.get('isAvailable') === 'true' ? 'true' : 'false');
+    // Add emotional tag
+    const emotionalTag = form.get('emotionalTag')?.toString() || '';
+    if (emotionalTag) {
+      formData.append('emotionalTag', emotionalTag);
+    }
 
     // Add image file if selected
     if (itemImageFile) {
@@ -420,8 +427,8 @@ export default function CatalogManagementPage() {
                               }
                             }}
                             className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${i.isAvailable !== false
-                                ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                : 'bg-red-100 text-red-700 hover:bg-red-200'
+                              ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                              : 'bg-red-100 text-red-700 hover:bg-red-200'
                               }`}
                           >
                             {i.isAvailable !== false ? (
@@ -473,7 +480,16 @@ export default function CatalogManagementPage() {
             <form onSubmit={saveCategory} className="p-5 space-y-4">
               <div>
                 <label className="text-sm font-semibold mb-2 block" style={{ color: colors.mutedText }}>Category Name</label>
-                <input name="name" defaultValue={catModal.editing?.name || ''} placeholder="e.g., Appetizers" className="w-full rounded-lg px-4 py-3 text-base font-medium" style={{ background: colors.background, border: `1px solid ${colors.cardBorder}`, color: colors.text }} />
+                <input name="name" defaultValue={catModal.editing?.name || ''} placeholder="e.g., Smoothies" className="w-full rounded-lg px-4 py-3 text-base font-medium" style={{ background: colors.background, border: `1px solid ${colors.cardBorder}`, color: colors.text }} />
+              </div>
+              <div>
+                <label className="text-sm font-semibold mb-2 block" style={{ color: colors.mutedText }}>Display Name (Customer-Facing)</label>
+                <input name="displayName" defaultValue={catModal.editing?.displayName || ''} placeholder="e.g., Morning Rituals" className="w-full rounded-lg px-4 py-3 text-base font-medium" style={{ background: colors.background, border: `1px solid ${colors.cardBorder}`, color: colors.text }} />
+                <p className="text-xs mt-1" style={{ color: colors.mutedText }}>Emotional name shown to customers. Leave empty to use category name.</p>
+              </div>
+              <div>
+                <label className="text-sm font-semibold mb-2 block" style={{ color: colors.mutedText }}>Tagline</label>
+                <input name="tagline" defaultValue={catModal.editing?.tagline || ''} placeholder="e.g., Start your day with something amazing" className="w-full rounded-lg px-4 py-3 text-base font-medium" style={{ background: colors.background, border: `1px solid ${colors.cardBorder}`, color: colors.text }} />
               </div>
               <div>
                 <label className="text-sm font-semibold mb-2 block" style={{ color: colors.mutedText }}>Emoji Icon</label>
@@ -481,7 +497,7 @@ export default function CatalogManagementPage() {
               </div>
               <div>
                 <label className="text-sm font-semibold mb-2 block" style={{ color: colors.mutedText }}>Description</label>
-                <textarea name="description" defaultValue={catModal.editing?.description || ''} placeholder="Brief description..." rows={3} className="w-full rounded-lg px-4 py-3 text-base" style={{ background: colors.background, border: `1px solid ${colors.cardBorder}`, color: colors.text }} />
+                <textarea name="description" defaultValue={catModal.editing?.description || ''} placeholder="Brief description..." rows={2} className="w-full rounded-lg px-4 py-3 text-base" style={{ background: colors.background, border: `1px solid ${colors.cardBorder}`, color: colors.text }} />
               </div>
               <div className="flex items-center justify-end gap-3 pt-2">
                 <button
@@ -585,6 +601,25 @@ export default function CatalogManagementPage() {
               <div>
                 <label className="text-sm font-semibold mb-2 block" style={{ color: colors.mutedText }}>Description</label>
                 <textarea name="description" defaultValue={itemModal.editing?.description || ''} placeholder="Brief description..." rows={3} className="w-full rounded-lg px-4 py-3 text-base" style={{ background: colors.background, border: `1px solid ${colors.cardBorder}`, color: colors.text }} />
+              </div>
+
+              {/* Emotional Tag Selector */}
+              <div>
+                <label className="text-sm font-semibold mb-2 block" style={{ color: colors.mutedText }}>Experience Tag (Optional)</label>
+                <select
+                  name="emotionalTag"
+                  defaultValue={itemModal.editing?.emotionalTag || ''}
+                  className="w-full rounded-lg px-4 py-3 text-base font-medium"
+                  style={{ background: colors.background, border: `1px solid ${colors.cardBorder}`, color: colors.text }}
+                >
+                  <option value="">No tag</option>
+                  <option value="comfort">🏠 Comfort Classic</option>
+                  <option value="special">⭐ Special Occasion</option>
+                  <option value="power">💪 Power Up</option>
+                  <option value="fresh">🌿 Feel Good</option>
+                  <option value="share">❤️ Share the Love</option>
+                </select>
+                <p className="text-xs mt-1" style={{ color: colors.mutedText }}>Adds an experience badge to help customers connect emotionally</p>
               </div>
 
               {/* Availability Toggle */}

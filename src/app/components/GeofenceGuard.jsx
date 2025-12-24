@@ -1,150 +1,88 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { isWithinGeofence, getCurrentLocation, watchLocation, clearLocationWatch, checkWiFiConnection } from '../../utils/geofencing';
-import { useTheme } from '../providers';
+import { useEffect, useState, createContext, useContext } from 'react';
+import { isWithinGeofence, getCurrentLocation, watchLocation, clearLocationWatch } from '../../utils/geofencing';
+
+// Create context to share location data
+const LocationContext = createContext(null);
+
+export const useLocation = () => useContext(LocationContext);
 
 export default function GeofenceGuard({ children, onOutsideGeofence }) {
-  const { colors, theme } = useTheme();
-  const [isWithinBounds, setIsWithinBounds] = useState(null); // null = checking, true = inside, false = outside
-  const [locationError, setLocationError] = useState(null);
-  const [watchId, setWatchId] = useState(null);
   const [location, setLocation] = useState(null);
-  const [checkInterval, setCheckInterval] = useState(null);
+  const [locationStatus, setLocationStatus] = useState('checking'); // 'checking' | 'available' | 'unavailable'
 
   useEffect(() => {
-    // Check location on mount
-    checkLocation();
+    // Check location on mount (runs in background, doesn't block UI)
+    const initLocation = async () => {
+      try {
+        const loc = await getCurrentLocation();
 
-    // Watch for location changes (continuous monitoring)
-    const id = watchLocation(
-      (loc) => {
-        // Handle unavailable location gracefully
         if (loc.unavailable) {
-          console.log('[Geofence] Location unavailable, using graceful degradation');
-          // Try WiFi fallback
-          const onWiFi = checkWiFiConnection();
-          if (onWiFi === true) {
-            console.log('[Geofence] Using WiFi fallback - device on WiFi, allowing usage');
-          }
-          setIsWithinBounds(true); // Allow usage
-          setLocationError(null);
+          console.log('[Geofence] Location unavailable, continuing without location data');
+          setLocationStatus('unavailable');
           return;
         }
-        
+
         setLocation(loc);
+        setLocationStatus('available');
+
         const within = isWithinGeofence(loc.latitude, loc.longitude);
-        setIsWithinBounds(within);
-        
-        if (!within) {
-          console.warn('[Geofence] Device moved outside restaurant bounds');
-          if (onOutsideGeofence) {
-            onOutsideGeofence(loc);
-          }
+        if (!within && onOutsideGeofence) {
+          console.log('[Geofence] Device outside bounds (logged for analytics)');
+          onOutsideGeofence(loc);
+        }
+      } catch (error) {
+        console.log('[Geofence] Location check failed, continuing:', error);
+        setLocationStatus('unavailable');
+      }
+    };
+
+    initLocation();
+
+    // Watch for location changes (continuous monitoring in background)
+    const id = watchLocation(
+      (loc) => {
+        if (loc.unavailable) {
+          setLocationStatus('unavailable');
+          return;
+        }
+
+        setLocation(loc);
+        setLocationStatus('available');
+
+        const within = isWithinGeofence(loc.latitude, loc.longitude);
+        if (!within && onOutsideGeofence) {
+          onOutsideGeofence(loc);
         }
       },
-      null // No error callback needed - errors handled via unavailable flag
+      null
     );
 
-    setWatchId(id);
-
-    // Also check periodically (every 30 seconds) as backup
-    const interval = setInterval(() => {
-      checkLocation();
-    }, 30000);
-
-    setCheckInterval(interval);
+    // Periodic check every 60 seconds
+    const interval = setInterval(initLocation, 60000);
 
     return () => {
       if (id !== null) {
         clearLocationWatch(id);
       }
-      if (interval) {
-        clearInterval(interval);
-      }
+      clearInterval(interval);
     };
-  }, []);
+  }, [onOutsideGeofence]);
 
-  const checkLocation = async () => {
-    const loc = await getCurrentLocation();
-    
-    // Handle unavailable location gracefully
-    if (loc.unavailable) {
-      console.log('[Geofence] Location unavailable, using graceful degradation');
-      // Try WiFi fallback
-      const onWiFi = checkWiFiConnection();
-      if (onWiFi === true) {
-        console.log('[Geofence] Using WiFi fallback - device on WiFi, allowing usage');
-      }
-      setIsWithinBounds(true); // Allow usage
-      setLocationError(null);
-      return;
-    }
-    
-    setLocation(loc);
-    const within = isWithinGeofence(loc.latitude, loc.longitude);
-    setIsWithinBounds(within);
-    
-    if (!within) {
-      console.warn('[Geofence] Device is outside restaurant bounds');
-      if (onOutsideGeofence) {
-        onOutsideGeofence(loc);
-      }
-    } else {
-      setLocationError(null);
-    }
+  // Provide location data to children via context
+  const locationData = {
+    location,
+    locationStatus,
+    latitude: location?.latitude || null,
+    longitude: location?.longitude || null,
+    accuracy: location?.accuracy || null,
   };
 
-  // Show blocking screen if outside geofence
-  if (isWithinBounds === false) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.95)', backdropFilter: 'blur(8px)' }}>
-        <div className="text-center p-8 rounded-xl max-w-md mx-4" style={{ background: theme === 'light' ? '#1F2937' : '#111827', color: '#fff', border: '2px solid #EF4444' }}>
-          <div className="text-6xl mb-4">🚫</div>
-          <h2 className="text-2xl font-bold mb-4">Device Outside Restaurant</h2>
-          <p className="text-lg mb-4">
-            This tablet must remain within the restaurant premises to function.
-          </p>
-          <p className="text-sm opacity-75 mb-6">
-            Please return the device to the restaurant location.
-          </p>
-          {location && (
-            <div className="text-xs opacity-60 mt-4 p-3 rounded" style={{ background: 'rgba(255,255,255,0.1)' }}>
-              <p>Current Location:</p>
-              <p>Lat: {location.latitude.toFixed(6)}, Lon: {location.longitude.toFixed(6)}</p>
-            </div>
-          )}
-          <button
-            onClick={checkLocation}
-            className="mt-4 px-6 py-2 rounded-lg font-semibold transition-all hover:scale-105"
-            style={{ background: colors.amber500, color: '#fff' }}
-          >
-            Check Location Again
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Show loading while checking
-  if (isWithinBounds === null) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
-        <div className="text-center p-8 rounded-xl" style={{ background: theme === 'light' ? '#1F2937' : '#111827', color: '#fff' }}>
-          <div className="text-4xl mb-4 animate-pulse">📍</div>
-          <p className="text-lg mb-2">Verifying location...</p>
-          <p className="text-sm opacity-75">Please allow location access if prompted</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show warning if location error but allow usage (graceful degradation)
-  if (locationError && isWithinBounds === true) {
-    // Don't block, just log - device can still be used
-    console.warn('[Geofence] Location check failed, allowing usage:', locationError);
-  }
-
-  return children;
+  // Always render children immediately - location check happens in background
+  return (
+    <LocationContext.Provider value={locationData}>
+      {children}
+    </LocationContext.Provider>
+  );
 }
-

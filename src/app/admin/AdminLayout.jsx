@@ -31,6 +31,7 @@ const AVAILABLE_PAGES = [
   { id: 'kitchen', href: '/admin/kitchen', icon: IoRestaurant, label: 'Kitchen' },
   { id: 'invoices', href: '/admin/invoices', icon: IoReceiptOutline, label: 'Invoices' },
   { id: 'waiters', href: '/admin/waiters', icon: IoPersonAddOutline, label: 'Waiters' },
+  { id: 'customers', href: '/admin/customers', icon: IoPeopleOutline, label: 'Customers' },
   { id: 'analytics', href: '#', icon: IoBarChartOutline, label: 'Analytics' },
   { id: 'team', href: '/admin/team', icon: IoPeopleOutline, label: 'Team' },
   { id: 'settings', href: '/admin/settings', icon: IoSettingsOutline, label: 'Settings' },

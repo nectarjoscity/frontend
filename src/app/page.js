@@ -14,8 +14,10 @@ import Hero from './components/Hero';
 import ManualShop from './components/ManualShop';
 import CartSidebar from './components/CartSidebar';
 import InputArea from './components/InputArea';
-import GeofenceGuard from './components/GeofenceGuard';
+import GeofenceGuard, { useLocation } from './components/GeofenceGuard';
 import RecommendationList from './components/RecommendationList';
+import SmartRecommendations from './components/SmartRecommendations';
+import CustomerStories from './components/CustomerStories';
 import { isPreOrderLandingPage } from '../utils/landingPage';
 
 // Wrapper component to handle Suspense boundary for useSearchParams
@@ -63,7 +65,7 @@ function RestaurantChat() {
   const [manualDiningPreference, setManualDiningPreference] = useState(null); // 'takeout' | 'dine-in'
   const [manualDeliveryAddress, setManualDeliveryAddress] = useState('');
   const [manualContact, setManualContact] = useState('');
-  const [manualPaymentMethod, setManualPaymentMethod] = useState('cash'); // 'cash' | 'transfer'
+  const [manualPaymentMethod, setManualPaymentMethod] = useState('transfer'); // 'transfer' only (online payment)
   const [manualTransferConfirmed, setManualTransferConfirmed] = useState(false);
   const [detailsItem, setDetailsItem] = useState(null);
   const [tableNumber, setTableNumber] = useState(() => {
@@ -142,7 +144,7 @@ function RestaurantChat() {
     setManualDeliveryAddress('');
     setManualContact('');
     setOverrideTableNumber('');
-    setManualPaymentMethod('cash');
+    setManualPaymentMethod('transfer');
     setManualTransferConfirmed(false);
     setPaymentDetails(null);
     setPaymentError(null);
@@ -184,6 +186,9 @@ function RestaurantChat() {
   const { data: categories = [] } = useGetCategoriesQuery({ active: true });
   const [triggerGetMenuItems] = useLazyGetMenuItemsQuery();
   const [createOrder] = useCreateOrderMutation();
+
+  // Get location data for order tracking
+  const locationData = useLocation();
   const [createVirtualAccount, { isLoading: isCreatingAccount }] = useCreateVirtualAccountMutation();
   const [verifyPayment, { isLoading: isVerifyingPayment }] = useVerifyPaymentMutation();
   const [login] = useLoginMutation();
@@ -756,10 +761,13 @@ function RestaurantChat() {
         try {
           setPaymentError(null);
           // Calculate total price directly instead of calling getTotalPrice
-          const totalPrice = parseFloat(cart.reduce((total, item) => {
+          const subtotal = parseFloat(cart.reduce((total, item) => {
             const price = parseFloat(String(item.price).replace(/[^\d.]/g, ''));
             return total + (price * item.quantity);
           }, 0).toFixed(2));
+          // Add delivery fee of 1000
+          const deliveryFeeAmount = 1000;
+          const totalPrice = subtotal + deliveryFeeAmount;
           if (totalPrice <= 0) {
             setPaymentError('Invalid amount');
             return;
@@ -854,7 +862,7 @@ function RestaurantChat() {
 
   const handleDeliveryAddress = (address) => {
     setDeliveryAddress(address);
-    const fee = 3.99; // Fixed delivery fee
+    const fee = 1000; // Fixed delivery fee
     setDeliveryFee(fee);
     setCheckoutStep('payment');
     setTransferExpiry(900); // 15 minutes countdown
@@ -1375,19 +1383,7 @@ function RestaurantChat() {
                                 handleDiningPreference('takeout');
                               }}
                             >
-                              🥡 Takeout / Delivery
-                            </button>
-                            <button
-                              className="bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 text-sm sm:text-base"
-                              onClick={() => {
-                                // Blur any focused input on mobile to dismiss keyboard
-                                if (window.innerWidth <= 768 && document.activeElement) {
-                                  document.activeElement.blur();
-                                }
-                                handleDiningPreference('dine-in');
-                              }}
-                            >
-                              🍽️ Dine In Restaurant
+                              🚚 Delivery
                             </button>
                           </div>
                         </div>
@@ -1520,6 +1516,21 @@ function RestaurantChat() {
           {/* Manual Shop Area */}
           {mode === 'shop' && (
             <>
+              {/* Customer Stories/Testimonials */}
+              <CustomerStories colors={colors} theme={theme} />
+
+              {/* Smart Recommendations */}
+              <div className="max-w-5xl mx-auto px-3 sm:px-6 pt-6">
+                <SmartRecommendations
+                  menuItems={manualItems}
+                  colors={colors}
+                  theme={theme}
+                  onItemClick={setDetailsItem}
+                  addToCart={addToCart}
+                  cart={cart}
+                />
+              </div>
+
               <ManualShop
                 colors={colors}
                 categories={[...categories].reverse()}
@@ -1650,8 +1661,8 @@ function RestaurantChat() {
                         {detailsItem.isAvailable === false
                           ? 'Out of Stock'
                           : cart.some(ci => ci.name === detailsItem.name)
-                            ? '✓ Added to Cart'
-                            : 'Add to Cart'
+                            ? '✓ It\'s Yours!'
+                            : 'Make It Yours'
                         }
                       </button>
                     </div>
@@ -1672,7 +1683,7 @@ function RestaurantChat() {
             >
               <div className="p-3 sm:p-4" style={{ borderBottom: `1px solid ${colors.cardBorder}` }}>
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg sm:text-xl font-bold" style={{ color: colors.text }}>Your Cart</h2>
+                  <h2 className="text-lg sm:text-xl font-bold" style={{ color: colors.text }}>Your Feast 🍽️</h2>
                   <button
                     onClick={() => setShowCart(false)}
                     className="p-2 rounded-full transition-colors touch-manipulation"
@@ -1686,9 +1697,10 @@ function RestaurantChat() {
               <div className="flex-1 p-3 sm:p-4">
                 {cart.length === 0 ? (
                   <div className="text-center py-6 sm:py-8">
-                    <div className="text-4xl sm:text-6xl mb-3 sm:mb-4">🛒</div>
-                    <p className="text-base sm:text-lg" style={{ color: colors.mutedText }}>Your cart is empty</p>
-                    <p className="text-xs sm:text-sm mt-2" style={{ color: colors.mutedText, opacity: 0.7 }}>Add some delicious items to get started!</p>
+                    <div className="text-4xl sm:text-6xl mb-3 sm:mb-4">🍽️</div>
+                    <p className="text-lg sm:text-xl font-semibold mb-2" style={{ color: colors.text }}>Ready for something delicious?</p>
+                    <p className="text-base sm:text-lg" style={{ color: colors.mutedText }}>Your next favorite meal awaits</p>
+                    <p className="text-xs sm:text-sm mt-2" style={{ color: colors.mutedText, opacity: 0.7 }}>Browse our menu and make it yours!</p>
                   </div>
                 ) : (
                   <div className="space-y-3 sm:space-y-4">
@@ -1698,33 +1710,94 @@ function RestaurantChat() {
                           <div className="space-y-3">
                             <p className="font-semibold" style={{ color: colors.text }}>How would you like to get your order?</p>
                             <div className="grid gap-2 sm:gap-3">
-                              <button className="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2.5 px-4 rounded-lg" onClick={() => { setManualDiningPreference('takeout'); setManualStep('delivery-address'); }}>🥡 Takeout / Delivery</button>
-                              <button className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2.5 px-4 rounded-lg" onClick={() => {
-                                setManualDiningPreference('dine-in');
-                                // If table number is configured, go to contact-info, otherwise ask for table number
-                                if (tableNumber) {
-                                  setManualStep('contact-info');
-                                } else {
-                                  setManualStep('table-number');
-                                }
-                              }}>🍽️ Dine In Restaurant</button>
+                              <button className="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2.5 px-4 rounded-lg" onClick={() => { setManualDiningPreference('takeout'); setManualStep('delivery-address'); }}>🚚 Delivery</button>
                             </div>
                           </div>
                         )}
 
                         {manualStep === 'delivery-address' && (
                           <div className="space-y-3">
-                            <p className="font-semibold" style={{ color: colors.text }}>Enter delivery address:</p>
-                            <textarea
-                              value={manualDeliveryAddress}
-                              onChange={(e) => setManualDeliveryAddress(e.target.value)}
-                              className="w-full border rounded-lg px-3 py-2"
-                              style={{ borderColor: colors.cardBorder, background: colors.cardBg, color: colors.text }}
-                              rows={3}
-                              placeholder="123 Example Street, City"
-                            />
+                            <p className="font-semibold" style={{ color: colors.text }}>Delivery Information</p>
+                            <div className="space-y-2">
+                              <div>
+                                <label className="block text-xs mb-1" style={{ color: colors.mutedText }}>
+                                  👤 Name <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                  value={manualContact.split('|||')[2] || ''}
+                                  onChange={(e) => {
+                                    const parts = manualContact.split('|||');
+                                    const email = parts[0] || '';
+                                    const phone = parts[1] || '';
+                                    setManualContact(`${email}|||${phone}|||${e.target.value}`);
+                                  }}
+                                  className="w-full border rounded-lg px-3 py-2"
+                                  style={{ borderColor: colors.cardBorder, background: colors.cardBg, color: colors.text }}
+                                  placeholder="Your name"
+                                  type="text"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs mb-1" style={{ color: colors.mutedText }}>
+                                  📱 Phone <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                  value={manualContact.split('|||')[1] || ''}
+                                  onChange={(e) => {
+                                    const numbersOnly = e.target.value.replace(/[^0-9]/g, '');
+                                    const parts = manualContact.split('|||');
+                                    const email = parts[0] || '';
+                                    const name = parts[2] || '';
+                                    setManualContact(`${email}|||${numbersOnly}|||${name}`);
+                                  }}
+                                  className="w-full border rounded-lg px-3 py-2"
+                                  style={{ borderColor: colors.cardBorder, background: colors.cardBg, color: colors.text }}
+                                  placeholder="08012345678"
+                                  type="tel"
+                                  inputMode="numeric"
+                                  pattern="[0-9]*"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs mb-1" style={{ color: colors.mutedText }}>
+                                  📧 Email (optional)
+                                </label>
+                                <input
+                                  value={manualContact.split('|||')[0] || ''}
+                                  onChange={(e) => {
+                                    const parts = manualContact.split('|||');
+                                    const phone = parts[1] || '';
+                                    const name = parts[2] || '';
+                                    setManualContact(`${e.target.value}|||${phone}|||${name}`);
+                                  }}
+                                  className="w-full border rounded-lg px-3 py-2"
+                                  style={{ borderColor: colors.cardBorder, background: colors.cardBg, color: colors.text }}
+                                  placeholder="you@example.com"
+                                  type="email"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs mb-1" style={{ color: colors.mutedText }}>
+                                  📍 Delivery Address <span className="text-red-500">*</span>
+                                </label>
+                                <textarea
+                                  value={manualDeliveryAddress}
+                                  onChange={(e) => setManualDeliveryAddress(e.target.value)}
+                                  className="w-full border rounded-lg px-3 py-2"
+                                  style={{ borderColor: colors.cardBorder, background: colors.cardBg, color: colors.text }}
+                                  rows={2}
+                                  placeholder="Enter your complete delivery address"
+                                />
+                              </div>
+                            </div>
                             <div className="flex gap-2">
-                              <button className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg" onClick={() => setManualStep('contact-info')}>Continue</button>
+                              <button
+                                className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                onClick={() => setManualStep('payment')}
+                                disabled={!manualContact.split('|||')[1]?.trim() || !manualContact.split('|||')[2]?.trim() || !manualDeliveryAddress.trim()}
+                              >
+                                Continue to Payment
+                              </button>
                               <button className="bg-gray-200 hover:bg-gray-300 font-semibold py-2 px-4 rounded-lg" style={{ color: colors.text }} onClick={() => setManualStep('dining-preference')}>Back</button>
                             </div>
                           </div>
@@ -1777,96 +1850,90 @@ function RestaurantChat() {
 
                         {manualStep === 'contact-info' && (
                           <div className="space-y-3">
-                            <p className="font-semibold" style={{ color: colors.text }}>Enter contact (email or phone):</p>
-                            {manualDiningPreference === 'dine-in' && (overrideTableNumber || tableNumber) && (
-                              <div className="p-2 rounded-lg text-sm" style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}` }}>
-                                <p style={{ color: colors.mutedText }}>
-                                  🪑 Table: <strong style={{ color: colors.text }}>{overrideTableNumber || tableNumber}</strong>
-                                </p>
+                            <p className="font-semibold" style={{ color: colors.text }}>Enter your contact details:</p>
+                            <div className="space-y-2">
+                              <div>
+                                <label className="block text-xs mb-1" style={{ color: colors.mutedText }}>
+                                  👤 Name <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                  value={manualContact.split('|||')[2] || ''}
+                                  onChange={(e) => {
+                                    const parts = manualContact.split('|||');
+                                    const email = parts[0] || '';
+                                    const phone = parts[1] || '';
+                                    setManualContact(`${email}|||${phone}|||${e.target.value}`);
+                                  }}
+                                  className="w-full border rounded-lg px-3 py-2"
+                                  style={{ borderColor: colors.cardBorder, background: colors.cardBg, color: colors.text }}
+                                  placeholder="Your name"
+                                  type="text"
+                                />
                               </div>
-                            )}
-                            <input
-                              value={manualContact}
-                              onChange={(e) => setManualContact(e.target.value)}
-                              className="w-full border rounded-lg px-3 py-2"
-                              style={{ borderColor: colors.cardBorder, background: colors.cardBg, color: colors.text }}
-                              placeholder="e.g. you@example.com or +234..."
-                            />
+                              <div>
+                                <label className="block text-xs mb-1" style={{ color: colors.mutedText }}>
+                                  📱 Phone <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                  value={manualContact.split('|||')[1] || ''}
+                                  onChange={(e) => {
+                                    const parts = manualContact.split('|||');
+                                    const email = parts[0] || '';
+                                    const name = parts[2] || '';
+                                    setManualContact(`${email}|||${e.target.value}|||${name}`);
+                                  }}
+                                  className="w-full border rounded-lg px-3 py-2"
+                                  style={{ borderColor: colors.cardBorder, background: colors.cardBg, color: colors.text }}
+                                  placeholder="+234 800 000 0000"
+                                  type="tel"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs mb-1" style={{ color: colors.mutedText }}>
+                                  📧 Email (optional)
+                                </label>
+                                <input
+                                  value={manualContact.split('|||')[0] || ''}
+                                  onChange={(e) => {
+                                    const parts = manualContact.split('|||');
+                                    const phone = parts[1] || '';
+                                    const name = parts[2] || '';
+                                    setManualContact(`${e.target.value}|||${phone}|||${name}`);
+                                  }}
+                                  className="w-full border rounded-lg px-3 py-2"
+                                  style={{ borderColor: colors.cardBorder, background: colors.cardBg, color: colors.text }}
+                                  placeholder="you@example.com"
+                                  type="email"
+                                />
+                              </div>
+                            </div>
                             <div className="flex gap-2">
-                              <button className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg" onClick={() => setManualStep('payment')}>Continue</button>
-                              <button className="bg-gray-200 hover:bg-gray-300 font-semibold py-2 px-4 rounded-lg" style={{ color: colors.text }} onClick={() => {
-                                if (manualDiningPreference === 'dine-in' && !tableNumber) {
-                                  setManualStep('table-number');
-                                } else {
-                                  setManualStep(manualDiningPreference === 'takeout' ? 'delivery-address' : 'dining-preference');
-                                }
-                              }}>Back</button>
+                              <button
+                                className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                onClick={() => setManualStep('payment')}
+                                disabled={!manualContact.split('|||')[1]?.trim() || !manualContact.split('|||')[2]?.trim()}
+                              >
+                                Continue
+                              </button>
+                              <button className="bg-gray-200 hover:bg-gray-300 font-semibold py-2 px-4 rounded-lg" style={{ color: colors.text }} onClick={() => setManualStep('delivery-address')}>Back</button>
                             </div>
                           </div>
                         )}
 
                         {manualStep === 'payment' && (
                           <div className="space-y-3">
-                            <p className="font-semibold" style={{ color: colors.text }}>Select Payment Method</p>
+                            <p className="font-semibold" style={{ color: colors.text }}>Payment</p>
 
-                            {/* Payment Method Selection */}
-                            <div className="grid grid-cols-2 gap-2">
-                              <button
-                                onClick={() => {
-                                  console.log('[Payment Method] Setting to cash');
-                                  setManualPaymentMethod('cash');
-                                }}
-                                className={`px-4 py-3 rounded-lg text-base font-semibold transition-all flex items-center justify-center gap-2 ${manualPaymentMethod === 'cash' ? 'text-white' : ''
-                                  }`}
-                                style={{
-                                  background: manualPaymentMethod === 'cash'
-                                    ? colors.green500
-                                    : theme === 'light' ? '#F3F4F6' : '#1F2937',
-                                  color: manualPaymentMethod === 'cash' ? '#fff' : colors.text,
-                                  border: manualPaymentMethod === 'cash' ? 'none' : `1px solid ${colors.cardBorder}`
-                                }}
-                              >
-                                <IoCashOutline className="h-5 w-5" />
-                                Cash
-                              </button>
-                              <button
-                                onClick={() => setManualPaymentMethod('transfer')}
-                                className={`px-4 py-3 rounded-lg text-base font-semibold transition-all flex items-center justify-center gap-2 ${manualPaymentMethod === 'transfer' ? 'text-white' : ''
-                                  }`}
-                                style={{
-                                  background: manualPaymentMethod === 'transfer'
-                                    ? colors.blue600 || '#2563EB'
-                                    : theme === 'light' ? '#F3F4F6' : '#1F2937',
-                                  color: manualPaymentMethod === 'transfer' ? '#fff' : colors.text,
-                                  border: manualPaymentMethod === 'transfer' ? 'none' : `1px solid ${colors.cardBorder}`
-                                }}
-                              >
-                                <IoCardOutline className="h-5 w-5" />
-                                Transfer
-                              </button>
-                            </div>
-
-                            {/* Cash Payment Notice - shown when cash is selected */}
-                            {manualPaymentMethod === 'cash' && (
-                              <div className="rounded-lg p-5 mt-3" style={{ background: theme === 'light' ? '#FEF3C7' : '#3A2F1A', border: `2px solid ${colors.amber500 || '#F59E0B'}` }}>
-                                <h4 className="text-lg font-bold mb-3 flex items-center gap-2" style={{ color: colors.amber700 || '#B45309' }}>
-                                  Cash Payment Required
-                                </h4>
-                                <div className="space-y-3">
-                                  <p className="text-base leading-relaxed" style={{ color: colors.amber700 || '#B45309' }}>
-                                    After placing your order, please proceed to the counter to make your cash payment.
-                                  </p>
-                                  <p className="text-base leading-relaxed" style={{ color: colors.amber700 || '#B45309' }}>
-                                    Your order will be validated and sent to the kitchen once payment is confirmed by our staff.
-                                  </p>
-                                  <div className="p-3 rounded-lg mt-3" style={{ background: theme === 'light' ? 'rgba(180, 83, 9, 0.1)' : 'rgba(180, 83, 9, 0.2)' }}>
-                                    <p className="text-base font-bold flex items-center gap-2" style={{ color: colors.amber700 || '#B45309' }}>
-                                      Important: Your order will not be processed until payment is confirmed at the counter.
-                                    </p>
-                                  </div>
-                                </div>
+                            {/* Only Transfer Payment */}
+                            <div className="rounded-lg p-3" style={{ background: theme === 'light' ? '#EFF6FF' : '#1E3A5F', border: `1px solid ${colors.blue600 || '#2563EB'}` }}>
+                              <div className="flex items-center gap-2 mb-2">
+                                <IoCardOutline className="h-5 w-5" style={{ color: colors.blue600 || '#2563EB' }} />
+                                <span className="font-semibold" style={{ color: colors.text }}>Bank Transfer</span>
                               </div>
-                            )}
+                              <p className="text-sm" style={{ color: colors.mutedText }}>
+                                Pay securely via bank transfer. Account details will be generated below.
+                              </p>
+                            </div>
 
                             {/* Transfer Account Details - shown when transfer is selected */}
                             {manualPaymentMethod === 'transfer' && (
@@ -1943,8 +2010,22 @@ function RestaurantChat() {
                                       )}
                                     </div>
                                     <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${colors.cardBorder}` }}>
+                                      <div className="space-y-1 mb-3">
+                                        <div className="flex justify-between text-sm">
+                                          <span style={{ color: colors.mutedText }}>Subtotal:</span>
+                                          <span style={{ color: colors.text }}>₦{getTotalPrice()}</span>
+                                        </div>
+                                        <div className="flex justify-between text-sm">
+                                          <span style={{ color: colors.mutedText }}>Delivery Fee:</span>
+                                          <span style={{ color: colors.text }}>₦1,000.00</span>
+                                        </div>
+                                        <div className="flex justify-between text-base font-bold pt-1 border-t" style={{ borderColor: colors.cardBorder }}>
+                                          <span style={{ color: colors.text }}>Total:</span>
+                                          <span style={{ color: colors.green600 }}>₦{(parseFloat(getTotalPrice()) + 1000).toFixed(2)}</span>
+                                        </div>
+                                      </div>
                                       <p className="text-xs mb-3" style={{ color: colors.mutedText }}>
-                                        Transfer the exact amount of <strong style={{ color: colors.green600 }}>₦{getTotalPrice()}</strong> to the account above.
+                                        Transfer the exact amount of <strong style={{ color: colors.green600 }}>₦{(parseFloat(getTotalPrice()) + 1000).toFixed(2)}</strong> to the account above.
                                       </p>
                                       <button
                                         onClick={() => setManualTransferConfirmed(!manualTransferConfirmed)}
@@ -2087,22 +2168,33 @@ function RestaurantChat() {
                                           };
                                         });
 
+                                        // Parse contact: email|||phone|||name
+                                        const contactParts = manualContact.split('|||');
+                                        const customerEmail = contactParts[0] || '';
+                                        const customerPhone = contactParts[1] || '';
+                                        const customerName = contactParts[2] || 'Guest Customer';
+
                                         const orderData = {
-                                          customerName: manualContact || 'Guest Customer',
-                                          customerEmail: manualContact.includes('@') ? manualContact : '',
-                                          customerPhone: !manualContact.includes('@') ? manualContact : '',
-                                          totalAmount: totalAmount,
+                                          customerName: customerName,
+                                          customerEmail: customerEmail,
+                                          customerPhone: customerPhone,
+                                          totalAmount: parseFloat(totalAmount) + 1000, // Include delivery fee
                                           status: 'pending',
                                           paymentMethod: 'online',
                                           paymentConfirmed: true, // Payment verified
-                                          table: manualDiningPreference === 'dine-in'
-                                            ? `Table ${overrideTableNumber || tableNumber || 'N/A'}`
-                                            : (manualDeliveryAddress || 'Delivery'),
+                                          table: 'Delivery',
+                                          deliveryAddress: manualDeliveryAddress || '',
                                           orderItems: preparedOrderItems,
                                           paymentReference: paymentDetails.externalReference || paymentDetails.id,
                                           virtualAccountNumber: paymentDetails.accountNumber,
                                           virtualAccountName: paymentDetails.accountName,
                                           virtualAccountBank: paymentDetails.bankName,
+                                          // Location data for analytics
+                                          location: locationData ? {
+                                            latitude: locationData.latitude,
+                                            longitude: locationData.longitude,
+                                            accuracy: locationData.accuracy,
+                                          } : null,
                                         };
 
                                         const result = await createOrder(orderData).unwrap();

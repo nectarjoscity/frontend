@@ -103,7 +103,7 @@ export default function CartSidebar({
       >
         <div className="p-3 sm:p-4" style={{ borderBottom: `1px solid ${colors.cardBorder}` }}>
           <div className="flex items-center justify-between">
-            <h2 className="text-lg sm:text-xl font-bold" style={{ color: colors.text }}>Your Cart</h2>
+            <h2 className="text-lg sm:text-xl font-bold" style={{ color: colors.text }}>Your Feast 🍽️</h2>
             <button
               onClick={() => setShowCart(false)}
               className="p-2 rounded-full transition-colors touch-manipulation"
@@ -117,9 +117,10 @@ export default function CartSidebar({
         <div className="flex-1 p-3 sm:p-4">
           {cart.length === 0 ? (
             <div className="text-center py-6 sm:py-8">
-              <div className="text-4xl sm:text-6xl mb-3 sm:mb-4">🛒</div>
-              <p className="text-base sm:text-lg" style={{ color: colors.mutedText }}>Your cart is empty</p>
-              <p className="text-xs sm:text-sm mt-2" style={{ color: colors.mutedText, opacity: 0.7 }}>Add some delicious items to get started!</p>
+              <div className="text-4xl sm:text-6xl mb-3 sm:mb-4">🍽️</div>
+              <p className="text-lg sm:text-xl font-semibold mb-2" style={{ color: colors.text }}>Ready for something delicious?</p>
+              <p className="text-base sm:text-lg" style={{ color: colors.mutedText }}>Your next favorite meal awaits</p>
+              <p className="text-xs sm:text-sm mt-2" style={{ color: colors.mutedText, opacity: 0.7 }}>Browse our menu and make it yours!</p>
             </div>
           ) : (
             <div className="space-y-3 sm:space-y-4">
@@ -135,43 +136,23 @@ export default function CartSidebar({
                       </p>
                       <div className="grid gap-2 sm:gap-3">
                         {isPreOrder ? (
-                          <>
-                            <button
-                              className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2.5 px-4 rounded-lg text-left"
-                              onClick={() => {
-                                setManualDiningPreference('dine-in');
-                                setManualStep('contact-info');
-                              }}
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className="text-xl">🍽️</span>
-                                <div>
-                                  <div className="font-bold">Dine at the restaurant</div>
-                                  <div className="text-xs opacity-90">I'll come to the restaurant to enjoy my meal</div>
-                                </div>
+                          <button
+                            className="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2.5 px-4 rounded-lg text-left"
+                            onClick={() => {
+                              setManualDiningPreference('delivery');
+                              setManualStep('delivery-address');
+                            }}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-xl">🚚</span>
+                              <div>
+                                <div className="font-bold">Home delivery</div>
+                                <div className="text-xs opacity-90">Please deliver my order to my address</div>
                               </div>
-                            </button>
-                            <button
-                              className="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2.5 px-4 rounded-lg text-left"
-                              onClick={() => {
-                                setManualDiningPreference('delivery');
-                                setManualStep('delivery-address');
-                              }}
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className="text-xl">🚚</span>
-                                <div>
-                                  <div className="font-bold">Home delivery</div>
-                                  <div className="text-xs opacity-90">Please deliver my order to my address</div>
-                                </div>
-                              </div>
-                            </button>
-                          </>
+                            </div>
+                          </button>
                         ) : (
-                          <>
-                            <button className="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2.5 px-4 rounded-lg" onClick={() => { setManualDiningPreference('takeout'); setManualStep('delivery-address'); }}>🥡 Takeout / Delivery</button>
-                            <button className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2.5 px-4 rounded-lg" onClick={() => { setManualDiningPreference('dine-in'); setManualStep('contact-info'); }}>🍽️ Dine In Restaurant</button>
-                          </>
+                          <button className="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2.5 px-4 rounded-lg" onClick={() => { setManualDiningPreference('takeout'); setManualStep('delivery-address'); }}>🚚 Delivery</button>
                         )}
                       </div>
                     </div>
@@ -180,31 +161,87 @@ export default function CartSidebar({
                   {manualStep === 'delivery-address' && (
                     <div className="space-y-3">
                       <p className="font-semibold" style={{ color: colors.text }}>
-                        {isPreOrder
-                          ? "Where should we deliver your pre-order?"
-                          : "Enter delivery address:"
-                        }
+                        {isPreOrder ? "Delivery Details" : "Delivery Information"}
                       </p>
-                      <textarea
-                        value={manualDeliveryAddress}
-                        onChange={(e) => setManualDeliveryAddress(e.target.value)}
-                        className="w-full border rounded-lg px-3 py-2"
-                        style={{ borderColor: colors.cardBorder, background: colors.cardBg, color: colors.text }}
-                        rows={3}
-                        placeholder={isPreOrder ? "Enter your complete delivery address (street, city, state)" : "123 Example Street, City"}
-                      />
-                      {isPreOrder && (
-                        <p className="text-xs" style={{ color: colors.mutedText, opacity: 0.8 }}>
-                          Please provide your complete address to ensure timely delivery.
-                        </p>
-                      )}
+                      <div className="space-y-2">
+                        <div>
+                          <label className="block text-xs mb-1" style={{ color: colors.mutedText }}>
+                            👤 Name <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            value={manualContact.split('|||')[2] || ''}
+                            onChange={(e) => {
+                              const parts = manualContact.split('|||');
+                              const email = parts[0] || '';
+                              const phone = parts[1] || '';
+                              setManualContact(`${email}|||${phone}|||${e.target.value}`);
+                            }}
+                            className="w-full border rounded-lg px-3 py-2"
+                            style={{ borderColor: colors.cardBorder, background: colors.cardBg, color: colors.text }}
+                            placeholder="Your name"
+                            type="text"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs mb-1" style={{ color: colors.mutedText }}>
+                            📱 Phone <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            value={manualContact.split('|||')[1] || ''}
+                            onChange={(e) => {
+                              const numbersOnly = e.target.value.replace(/[^0-9]/g, '');
+                              const parts = manualContact.split('|||');
+                              const email = parts[0] || '';
+                              const name = parts[2] || '';
+                              setManualContact(`${email}|||${numbersOnly}|||${name}`);
+                            }}
+                            className="w-full border rounded-lg px-3 py-2"
+                            style={{ borderColor: colors.cardBorder, background: colors.cardBg, color: colors.text }}
+                            placeholder="08012345678"
+                            type="tel"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs mb-1" style={{ color: colors.mutedText }}>
+                            📧 Email (optional)
+                          </label>
+                          <input
+                            value={manualContact.split('|||')[0] || ''}
+                            onChange={(e) => {
+                              const parts = manualContact.split('|||');
+                              const phone = parts[1] || '';
+                              const name = parts[2] || '';
+                              setManualContact(`${e.target.value}|||${phone}|||${name}`);
+                            }}
+                            className="w-full border rounded-lg px-3 py-2"
+                            style={{ borderColor: colors.cardBorder, background: colors.cardBg, color: colors.text }}
+                            placeholder="you@example.com"
+                            type="email"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs mb-1" style={{ color: colors.mutedText }}>
+                            📍 Delivery Address <span className="text-red-500">*</span>
+                          </label>
+                          <textarea
+                            value={manualDeliveryAddress}
+                            onChange={(e) => setManualDeliveryAddress(e.target.value)}
+                            className="w-full border rounded-lg px-3 py-2"
+                            style={{ borderColor: colors.cardBorder, background: colors.cardBg, color: colors.text }}
+                            rows={2}
+                            placeholder="Enter your complete delivery address"
+                          />
+                        </div>
+                      </div>
                       <div className="flex gap-2">
                         <button
-                          className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg"
-                          onClick={() => setManualStep('contact-info')}
-                          disabled={!manualDeliveryAddress.trim()}
+                          className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                          onClick={() => setManualStep('payment')}
+                          disabled={!manualContact.split('|||')[1]?.trim() || !manualContact.split('|||')[2]?.trim() || !manualDeliveryAddress.trim()}
                         >
-                          Continue
+                          Continue to Payment
                         </button>
                         <button className="bg-gray-200 hover:bg-gray-300 font-semibold py-2 px-4 rounded-lg" style={{ color: colors.text }} onClick={() => setManualStep('dining-preference')}>Back</button>
                       </div>
@@ -219,29 +256,33 @@ export default function CartSidebar({
                           <div className="space-y-2">
                             <div>
                               <label className="block text-xs mb-1" style={{ color: colors.mutedText }}>
-                                📧 Email (for order updates)
+                                👤 Name <span className="text-red-500">*</span>
                               </label>
                               <input
-                                value={manualContact.split('|||')[0] || ''}
+                                value={manualContact.split('|||')[2] || ''}
                                 onChange={(e) => {
-                                  const phone = manualContact.split('|||')[1] || '';
-                                  setManualContact(`${e.target.value}|||${phone}`);
+                                  const parts = manualContact.split('|||');
+                                  const email = parts[0] || '';
+                                  const phone = parts[1] || '';
+                                  setManualContact(`${email}|||${phone}|||${e.target.value}`);
                                 }}
                                 className="w-full border rounded-lg px-3 py-2"
                                 style={{ borderColor: colors.cardBorder, background: colors.cardBg, color: colors.text }}
-                                placeholder="you@example.com"
-                                type="email"
+                                placeholder="Your name"
+                                type="text"
                               />
                             </div>
                             <div>
                               <label className="block text-xs mb-1" style={{ color: colors.mutedText }}>
-                                📱 Phone (for delivery driver)
+                                📱 Phone <span className="text-red-500">*</span>
                               </label>
                               <input
                                 value={manualContact.split('|||')[1] || ''}
                                 onChange={(e) => {
-                                  const email = manualContact.split('|||')[0] || '';
-                                  setManualContact(`${email}|||${e.target.value}`);
+                                  const parts = manualContact.split('|||');
+                                  const email = parts[0] || '';
+                                  const name = parts[2] || '';
+                                  setManualContact(`${email}|||${e.target.value}|||${name}`);
                                 }}
                                 className="w-full border rounded-lg px-3 py-2"
                                 style={{ borderColor: colors.cardBorder, background: colors.cardBg, color: colors.text }}
@@ -249,15 +290,33 @@ export default function CartSidebar({
                                 type="tel"
                               />
                             </div>
+                            <div>
+                              <label className="block text-xs mb-1" style={{ color: colors.mutedText }}>
+                                📧 Email (optional)
+                              </label>
+                              <input
+                                value={manualContact.split('|||')[0] || ''}
+                                onChange={(e) => {
+                                  const parts = manualContact.split('|||');
+                                  const phone = parts[1] || '';
+                                  const name = parts[2] || '';
+                                  setManualContact(`${e.target.value}|||${phone}|||${name}`);
+                                }}
+                                className="w-full border rounded-lg px-3 py-2"
+                                style={{ borderColor: colors.cardBorder, background: colors.cardBg, color: colors.text }}
+                                placeholder="you@example.com"
+                                type="email"
+                              />
+                            </div>
                           </div>
                           <p className="text-xs" style={{ color: colors.mutedText, opacity: 0.8 }}>
-                            We'll email you order updates and share your phone with the delivery driver.
+                            We'll share your phone with the delivery driver.
                           </p>
                           <div className="flex gap-2">
                             <button
                               className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                               onClick={() => setManualStep('payment')}
-                              disabled={!manualContact.split('|||')[0]?.trim() || !manualContact.split('|||')[1]?.trim()}
+                              disabled={!manualContact.split('|||')[1]?.trim() || !manualContact.split('|||')[2]?.trim()}
                             >
                               Continue
                             </button>
@@ -410,23 +469,53 @@ export default function CartSidebar({
 
                   {manualStep === 'confirmed' && (
                     <div className="space-y-3">
+                      {/* Celebration Header */}
+                      <div className="text-center py-4">
+                        <div className="text-5xl mb-2">🎉</div>
+                        <h3 className="text-xl font-bold" style={{ color: colors.green700 || '#047857' }}>
+                          Your happiness is on its way!
+                        </h3>
+                      </div>
+
                       <div className="rounded-lg p-4" style={{ background: theme === 'light' ? '#ECFDF5' : '#052e21', border: `1px solid ${colors.green500 || '#10B981'}` }}>
-                        <p className="font-bold text-lg mb-2 flex items-center gap-2" style={{ color: colors.green700 || '#047857' }}>
-                          ✅ Payment Verified & Order Confirmed!
+                        <p className="font-bold text-lg mb-3 flex items-center gap-2" style={{ color: colors.green700 || '#047857' }}>
+                          ✅ Order Confirmed!
                         </p>
-                        <p className="text-sm mb-2" style={{ color: colors.green700 || '#047857' }}>
-                          Your payment has been successfully verified and your order has been placed.
-                        </p>
+
+                        {/* Estimated time */}
+                        <div className="flex items-center gap-2 mb-3 p-3 rounded-lg" style={{ background: theme === 'light' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(16, 185, 129, 0.2)' }}>
+                          <span className="text-xl">⏱️</span>
+                          <div>
+                            <p className="font-semibold" style={{ color: colors.text }}>
+                              {manualDiningPreference === 'takeout' || manualDiningPreference === 'delivery'
+                                ? 'Happiness arrives in ~45-60 minutes'
+                                : 'Your table will be ready soon'}
+                            </p>
+                            <p className="text-xs" style={{ color: colors.mutedText }}>We're preparing something special for you</p>
+                          </div>
+                        </div>
+
                         <p className="text-sm" style={{ color: colors.green700 || '#047857' }}>
-                          {isPreOrder
-                            ? `We will ${manualDiningPreference === 'delivery' ? 'deliver your pre-order to' : 'notify you at'} ${manualDiningPreference === 'delivery' ? manualDeliveryAddress : manualContact} on the scheduled date.`
-                            : `We will ${manualDiningPreference === 'takeout' ? 'deliver your order to' : 'notify you at'} ${manualDiningPreference === 'takeout' ? manualDeliveryAddress : manualContact} when your food is ready.`
+                          {manualDiningPreference === 'takeout' || manualDiningPreference === 'delivery'
+                            ? `Your comfort food is being crafted with love and will be delivered to ${manualDeliveryAddress}`
+                            : `We'll notify you at ${manualContact} when your meal is ready`
                           }
                         </p>
                       </div>
+
+                      {/* Warm farewell */}
+                      <p className="text-center text-sm" style={{ color: colors.mutedText }}>
+                        Thank you for choosing Nectar 💚 We can't wait to serve you again!
+                      </p>
+
                       <button
-                        className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2.5 px-4 rounded-lg w-full"
+                        className="bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-4 rounded-lg w-full transition-all hover:scale-105"
                         onClick={() => {
+                          // Increment order count for loyalty tracking
+                          if (typeof window !== 'undefined') {
+                            const currentCount = parseInt(localStorage.getItem('nv_order_count') || '0', 10);
+                            localStorage.setItem('nv_order_count', String(currentCount + 1));
+                          }
                           resetManualCheckout();
                           setShowCart(false);
                           if (onOrderCreate && typeof window !== 'undefined') {
@@ -435,7 +524,7 @@ export default function CartSidebar({
                           }
                         }}
                       >
-                        Done
+                        Continue Exploring 🍽️
                       </button>
                     </div>
                   )}
